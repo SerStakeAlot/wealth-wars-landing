@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useScrollReveal } from './hooks/use-scroll-reveal';
 import WealthWarsLogo from './components/WealthWarsLogo';
 import Whitepaper from './components/Whitepaper';
@@ -9,7 +9,14 @@ import { ArrowSquareOut, Shield, Coins, Trophy, Users, Lightning } from '@phosph
 
 function App() {
   const [currentView, setCurrentView] = useState<'home' | 'whitepaper'>('home');
-  useScrollReveal();
+  useScrollReveal(currentView);
+
+  // When navigating back to home, ensure scroll reset so reveals can trigger naturally.
+  useEffect(() => {
+    if (currentView === 'home') {
+      window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+    }
+  }, [currentView]);
 
   const socialLinks = [
     { name: 'X.com', url: 'https://x.com/WealthWars', icon: ArrowSquareOut },
@@ -49,24 +56,17 @@ function App() {
       {/* Hero Section */}
       <section className="relative min-h-screen flex flex-col items-center justify-center px-4 hero-glow">
         <div className="absolute top-8 left-8">
-          <WealthWarsLogo className="text-2xl md:text-3xl" />
+          <WealthWarsLogo size="sm" />
         </div>
         
         <div className="text-center max-w-4xl mx-auto">
-          <Badge variant="secondary" className="mb-6 text-lg px-4 py-2">
-            🎮 Beta Live - Light Token Mode
-          </Badge>
-          
-          <WealthWarsLogo className="mb-8" />
+          <WealthWarsLogo size="hero" shimmer className="mb-10" />
           
           <p className="text-xl md:text-2xl text-muted-foreground mb-8 leading-relaxed">
             Build, defend, and raid for advantage in a constrained resource economy—master timing and pressure to turn daily production into lasting <span className="text-accent font-semibold">$WEALTH</span>.
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
-            <Button size="lg" className="text-lg px-8 py-4 glow-effect">
-              Enter the Battle Arena
-            </Button>
             <Button variant="outline" size="lg" className="text-lg px-8 py-4" onClick={() => setCurrentView('whitepaper')}>
               View Whitepaper
             </Button>
@@ -96,7 +96,7 @@ function App() {
       <section className="py-24 px-4">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16 scroll-reveal">
-            <h2 className="text-4xl md:text-5xl font-bold mb-6 gold-gradient" style={{ fontFamily: 'Orbitron, monospace' }}>
+            <h2 className="text-4xl md:text-5xl font-bold mb-6 gold-gradient font-orbitron tracking-wide">
               Master the Economy
             </h2>
             <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
@@ -127,7 +127,7 @@ function App() {
       <section className="py-24 px-4 bg-card/30">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16 scroll-reveal">
-            <h2 className="text-4xl md:text-5xl font-bold mb-6 gold-gradient" style={{ fontFamily: 'Orbitron, monospace' }}>
+            <h2 className="text-4xl md:text-5xl font-bold mb-6 gold-gradient font-orbitron tracking-wide">
               Transparent Economics
             </h2>
             <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
@@ -174,7 +174,7 @@ function App() {
         <div className="max-w-6xl mx-auto">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div className="scroll-reveal">
-              <h2 className="text-4xl md:text-5xl font-bold mb-8 gold-gradient" style={{ fontFamily: 'Orbitron, monospace' }}>
+              <h2 className="text-4xl md:text-5xl font-bold mb-8 gold-gradient font-orbitron tracking-wide">
                 High-Stakes Strategy
               </h2>
               <div className="space-y-6">
@@ -236,43 +236,12 @@ function App() {
         </div>
       </section>
 
-      {/* Call to Action */}
-      <section className="py-24 px-4 hero-glow">
-        <div className="max-w-4xl mx-auto text-center scroll-reveal">
-          <h2 className="text-4xl md:text-5xl font-bold mb-6 gold-gradient" style={{ fontFamily: 'Orbitron, monospace' }}>
-            Ready to Build Your Empire?
-          </h2>
-          <p className="text-xl text-muted-foreground mb-12">
-            Join thousands of strategists competing for $WEALTH in the most transparent idle battler on Solana.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" className="text-xl px-12 py-6 glow-effect">
-              Start Playing Now
-            </Button>
-            <div className="flex gap-4 justify-center">
-              {socialLinks.map((link) => {
-                const IconComponent = link.icon;
-                return (
-                  <Button
-                    key={link.name}
-                    variant="outline"
-                    size="lg"
-                    className="px-6 py-6"
-                    onClick={() => window.open(link.url, '_blank')}
-                  >
-                    <IconComponent size={24} />
-                  </Button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* (Call to Action removed while game in development) */}
 
       {/* Footer */}
       <footer className="py-12 px-4 border-t border-border/50">
         <div className="max-w-6xl mx-auto text-center">
-          <WealthWarsLogo className="mb-4 text-2xl" />
+          <WealthWarsLogo size="md" className="mb-4" />
           <p className="text-muted-foreground">
             Build, defend, and raid for advantage in a constrained resource economy.
           </p>

@@ -22,14 +22,14 @@ export default function Whitepaper({ onBack }: WhitepaperProps) {
             <ArrowLeft size={20} className="mr-2" />
             Back to Home
           </Button>
-          <WealthWarsLogo className="text-xl" />
+          <WealthWarsLogo size="sm" />
         </div>
       </header>
 
       {/* Content */}
       <main className="max-w-4xl mx-auto px-4 py-12">
         <div className="text-center mb-12">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4 gold-gradient" style={{ fontFamily: 'Orbitron, monospace' }}>
+          <h1 className="text-4xl md:text-5xl font-bold mb-4 gold-gradient font-orbitron tracking-wide">
             Wealth Wars Whitepaper
           </h1>
           <p className="text-xl text-muted-foreground">

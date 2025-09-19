@@ -54,10 +54,63 @@
 
 /* Custom styles for Wealth Wars */
 .gold-gradient {
-  background: linear-gradient(135deg, oklch(0.9 0.15 85) 0%, oklch(0.7 0.2 75) 50%, oklch(0.8 0.15 85) 100%);
+  background: linear-gradient(180deg,
+    #fff6c7 0%,
+    #ffe89a 14%,
+    #f9c742 28%,
+    #b07c24 42%,
+    #f2d271 58%,
+    #ffd34a 72%,
+    #9b6a1a 86%,
+    #ffd98c 100%);
   -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
   background-clip: text;
+  color: transparent;
+  text-shadow: 0 2px 0 rgba(0,0,0,0.12), 0 10px 24px rgba(255,199,84,0.12);
+}
+
+/* Wealth Wars wordmark base */
+.wealthwars-logo {
+  font-family: 'Orbitron', 'Eurostile', 'Bank Gothic', 'Rajdhani', 'Arial Black', sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 800;
+  line-height: 1.05;
+}
+
+/* Shimmer animation (applied optionally) */
+@keyframes wealthwars-shimmer {
+  0% { background-position: 50% 0%; filter: drop-shadow(0 2px 0 rgba(0,0,0,0.12)) drop-shadow(0 10px 24px rgba(255,199,84,0.12)); }
+  45% { background-position: 50% 0%; }
+  55% { background-position: 50% 100%; }
+  100% { background-position: 50% 0%; }
+}
+
+.gold-gradient-shimmer {
+  position: relative;
+  background-image:
+    linear-gradient(180deg,
+      #fff6c7 0%, #ffe89a 14%, #f9c742 28%, #b07c24 42%,
+      #f2d271 58%, #ffd34a 72%, #9b6a1a 86%, #ffd98c 100%),
+    linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.7) 50%, rgba(255,255,255,0) 100%);
+  background-size: 100% 100%, 180% 300%;
+  background-repeat: no-repeat;
+  background-blend-mode: overlay;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: wealthwars-shimmer 5s ease-in-out infinite;
+  animation-play-state: paused; /* only run on hover/focus */
+  text-shadow: 0 2px 0 rgba(0,0,0,0.12), 0 10px 24px rgba(255,199,84,0.12);
+}
+
+.gold-gradient-shimmer:hover,
+.gold-gradient-shimmer:focus-visible {
+  animation-play-state: running;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gold-gradient-shimmer { animation: none; }
 }
 
 .glow-effect {
@@ -77,4 +130,10 @@
 .scroll-reveal.revealed {
   opacity: 1;
   transform: translateY(0);
+}
+
+/* Brand font utility */
+.font-brand, .font-orbitron {
+  font-family: 'Orbitron', 'Eurostile', 'Bank Gothic', 'Rajdhani', 'Arial Black', sans-serif;
+  letter-spacing: 0.04em;
 }

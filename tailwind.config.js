@@ -18,6 +18,16 @@ const defaultTheme = {
     padding: "2rem",
   },
   extend: {
+    fontFamily: {
+      orbitron: [
+        "Orbitron",
+        "Eurostile",
+        "Bank Gothic",
+        "Rajdhani",
+        "Arial Black",
+        "sans-serif"
+      ],
+    },
     screens: {
       coarse: { raw: "(pointer: coarse)" },
       fine: { raw: "(pointer: fine)" },
