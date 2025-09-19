@@ -1,11 +1,8 @@
-interface WealthWarsLogoProps {
-  className?: string;
-}
+import React from 'react';
 
-export default function WealthWarsLogo({ className = "" }: WealthWarsLogoProps) {
+export default function WealthWarsLogo({ className = '' }: { className?: string }) {
   return (
-    <h1 className={`font-black text-4xl md:text-5xl lg:text-6xl tracking-tight gold-gradient ${className}`} 
-        style={{ fontFamily: 'Orbitron, monospace' }}>
+    <h1 className={`wealthwars-logo gold-gradient ${className}`} style={{ fontFamily: 'Orbitron, monospace' }}>
       WEALTH WARS
     </h1>
   );

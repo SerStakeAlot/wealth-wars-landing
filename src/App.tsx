@@ -1,11 +1,14 @@
+import { useState } from 'react';
 import { useScrollReveal } from './hooks/use-scroll-reveal';
 import WealthWarsLogo from './components/WealthWarsLogo';
+import Whitepaper from './components/Whitepaper';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ArrowSquareOut, Shield, Coins, Trophy, Users, Lightning } from '@phosphor-icons/react';
 
 function App() {
+  const [currentView, setCurrentView] = useState<'home' | 'whitepaper'>('home');
   useScrollReveal();
 
   const socialLinks = [
@@ -37,6 +40,10 @@ function App() {
     }
   ];
 
+  if (currentView === 'whitepaper') {
+    return <Whitepaper onBack={() => setCurrentView('home')} />;
+  }
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Hero Section */}
@@ -60,7 +67,7 @@ function App() {
             <Button size="lg" className="text-lg px-8 py-4 glow-effect">
               Enter the Battle Arena
             </Button>
-            <Button variant="outline" size="lg" className="text-lg px-8 py-4">
+            <Button variant="outline" size="lg" className="text-lg px-8 py-4" onClick={() => setCurrentView('whitepaper')}>
               View Whitepaper
             </Button>
           </div>
