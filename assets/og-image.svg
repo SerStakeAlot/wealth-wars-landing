@@ -1,4 +1,13 @@
 <svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <style><![CDATA[
+    @font-face {
+      font-family: 'Orbitron';
+      font-style: normal;
+      font-weight: 800;
+      src: url(data:font/truetype;base64,AAEAAAAQAQAABAAAR0RFRgAXAAsAAAE0AAAAHEdQT1Mr2CRQAAADLAAAAH5HU1VCuPy46gAAAbQAAAAoT1MvMmG/7H0AAAJoAAAAYFNUQVR5lGutAAACBAAAACpjbWFwAQ4BogAAAsgAAABkZ2FzcAAAAEAAAAEUAAAACGdseWZmTb+LAAADrAAAAmJoZWFkCoykyQAAAjAAAAA2aGhlYQhIAmcAAAGQAAAAJGhtdHgd1QGfAAAB3AAAAChsb2NhA6YDGwAAARwAAAAWbWF4cAAWAJgAAAFQAAAAIG5hbWUzU1hAAAAGEAAAAnBwb3N0/58AMgAAAXAAAAAgcHJlcGgGjIUAAAEMAAAAB7gB/4WwBI0AAAEAAf//AA8A); format('truetype');
+    }
+    text { font-family: 'Orbitron', 'Arial Black', sans-serif; }
+  ]]></style>
   <defs>
     <linearGradient id="goldGradient" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%" stop-color="#fff6c7" />
@@ -49,9 +58,9 @@
   <ellipse cx="600" cy="315" rx="360" ry="145" fill="#ffd98c" opacity="0.05" />
 
   <!-- Stacked title text group -->
-  <g font-family="'Orbitron', 'Arial Black', 'Segoe UI', sans-serif" font-weight="800" text-anchor="middle" fill="url(#goldGradient)" filter="url(#outerGlow)">
-    <text x="600" y="285" font-size="182" letter-spacing="0.12em" filter="url(#textShadow)">WEALTH</text>
-    <text x="600" y="470" font-size="182" letter-spacing="0.12em" filter="url(#textShadow)">WARS</text>
+  <g text-anchor="middle" fill="url(#goldGradient)" filter="url(#outerGlow)">
+    <text x="600" y="300" font-size="188" letter-spacing="0.12em" font-weight="800" filter="url(#textShadow)">WEALTH</text>
+    <text x="600" y="500" font-size="188" letter-spacing="0.12em" font-weight="800" filter="url(#textShadow)">WARS</text>
   </g>
 
   <!-- Thin accent lines -->
