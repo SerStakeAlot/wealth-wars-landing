@@ -137,3 +137,19 @@
   font-family: 'Orbitron', 'Eurostile', 'Bank Gothic', 'Rajdhani', 'Arial Black', sans-serif;
   letter-spacing: 0.04em;
 }
+
+/* --- Mobile Enhancements & Utilities --- */
+@supports not (height: 100dvh) {
+  .min-h-dvh { min-height: 100vh; }
+}
+
+.pt-safe-top { padding-top: max(env(safe-area-inset-top), 2rem); }
+.pb-safe-bottom { padding-bottom: max(env(safe-area-inset-bottom), 2rem); }
+
+@media (max-width: 640px) {
+  .wealthwars-logo { text-shadow: 0 1px 0 rgba(0,0,0,0.18), 0 6px 16px rgba(255,199,84,0.16); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scroll-reveal { transition: none; opacity: 1 !important; transform: none !important; }
+}

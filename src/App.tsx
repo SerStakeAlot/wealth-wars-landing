@@ -54,7 +54,7 @@ function App() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Hero Section */}
-      <section className="relative min-h-screen flex flex-col items-center justify-center px-4 hero-glow">
+  <section className="relative min-h-dvh flex flex-col items-center justify-center px-4 pt-safe-top pb-safe-bottom hero-glow">
         <div className="absolute top-8 left-8">
           <WealthWarsLogo size="sm" />
         </div>
