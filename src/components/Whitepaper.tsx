@@ -30,7 +30,7 @@ export default function Whitepaper({ onBack }: WhitepaperProps) {
       <main className="max-w-4xl mx-auto px-4 py-12">
         <div className="text-center mb-12">
           <h1 className="text-4xl md:text-5xl font-bold mb-4 gold-gradient font-orbitron tracking-wide">
-            Wealth Wars Whitepaper
+            Whitepaper
           </h1>
           <p className="text-xl text-muted-foreground">
             Strategy Idle Battle Economy (Light Token Beta)
