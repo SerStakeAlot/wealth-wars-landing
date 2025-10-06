@@ -2,13 +2,14 @@ import { useState, useEffect } from 'react';
 import { useScrollReveal } from './hooks/use-scroll-reveal';
 import WealthWarsLogo from './components/WealthWarsLogo';
 import Whitepaper from './components/Whitepaper';
+import Roadmap from './components/Roadmap';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ArrowSquareOut, Shield, Coins, Trophy, Users, Lightning } from '@phosphor-icons/react';
 
 function App() {
-  const [currentView, setCurrentView] = useState<'home' | 'whitepaper'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'whitepaper' | 'roadmap'>('home');
   useScrollReveal(currentView);
 
   // When navigating back to home, ensure scroll reset so reveals can trigger naturally.
@@ -51,6 +52,10 @@ function App() {
     return <Whitepaper onBack={() => setCurrentView('home')} />;
   }
 
+  if (currentView === 'roadmap') {
+    return <Roadmap onBack={() => setCurrentView('home')} />;
+  }
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Hero Section */}
@@ -68,7 +73,10 @@ function App() {
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
             <Button variant="outline" size="lg" className="text-lg px-8 py-4" onClick={() => setCurrentView('whitepaper')}>
-              View Whitepaper
+              Whitepaper
+            </Button>
+            <Button variant="outline" size="lg" className="text-lg px-8 py-4" onClick={() => setCurrentView('roadmap')}>
+              Roadmap
             </Button>
           </div>
           
