@@ -18,14 +18,9 @@ type Milestone = {
   range?: boolean;
 };
 
+// NOTE: Corrected hackathon entry year from 2024 -> 2025 (original input likely a typo)
+// and reordered strictly chronological so August precedes September etc.
 const milestones: Milestone[] = [
-  {
-    id: 'hackathon-entry-2024',
-    dateLabel: 'Sep 24, 2024',
-    title: "Entered Colosseum's hackathon",
-    description: 'Initial exposure and competitive framing for the concept.',
-    status: 'completed'
-  },
   {
     id: 'idea-created',
     dateLabel: 'Aug 27, 2025',
@@ -38,6 +33,13 @@ const milestones: Milestone[] = [
     dateLabel: 'Sep 1, 2025',
     title: 'Development Began',
     description: 'Initial codebase + foundational economic systems.',
+    status: 'completed'
+  },
+  {
+    id: 'hackathon-entry-2025',
+    dateLabel: "Sep 24, 2025",
+    title: "Entered Colosseum's hackathon",
+    description: 'Initial exposure and competitive framing for the concept.',
     status: 'completed'
   },
   {
