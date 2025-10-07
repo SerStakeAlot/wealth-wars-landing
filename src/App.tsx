@@ -4,13 +4,14 @@ import WealthWarsLogo from './components/WealthWarsLogo';
 import Whitepaper from './components/Whitepaper';
 import Roadmap from './components/Roadmap';
 import Demo from './components/Demo';
+import Tokenomics from './components/Tokenomics';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ArrowSquareOut, Shield, Coins, Trophy, Users, Lightning } from '@phosphor-icons/react';
 
 function App() {
-  const [currentView, setCurrentView] = useState<'home' | 'whitepaper' | 'roadmap' | 'demo'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'whitepaper' | 'roadmap' | 'demo' | 'tokenomics'>('home');
   useScrollReveal(currentView);
 
   // When navigating back to home, ensure scroll reset so reveals can trigger naturally.
@@ -61,6 +62,10 @@ function App() {
     return <Demo onBack={() => setCurrentView('home')} />;
   }
 
+  if (currentView === 'tokenomics') {
+    return <Tokenomics onBack={() => setCurrentView('home')} />;
+  }
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Hero Section */}
@@ -83,6 +88,7 @@ function App() {
               <span className="pr-3">Demo</span>
               <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-400/30 group-hover:border-amber-300 transition-colors">Soon</span>
             </Button>
+            <Button variant="outline" size="lg" className="text-lg px-8 py-4" onClick={() => setCurrentView('tokenomics')}>Tokenomics</Button>
           </div>
           
           <div className="flex flex-wrap gap-4 justify-center">
