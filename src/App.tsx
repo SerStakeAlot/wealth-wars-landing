@@ -157,34 +157,35 @@ function App() {
           <div className="grid md:grid-cols-3 gap-8">
             <Card className="scroll-reveal text-center">
               <CardHeader>
-                <CardTitle className="text-2xl text-accent">Exchange Rate</CardTitle>
+                <CardTitle className="text-2xl text-accent">Soft Reference Ratio</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold mb-2">75:1</div>
-                <p className="text-muted-foreground">Credits to $WEALTH conversion rate</p>
+                <div className="text-3xl font-bold mb-2">100:1</div>
+                <p className="text-muted-foreground">Credits → $WEALTH (tunable)</p>
               </CardContent>
             </Card>
 
             <Card className="scroll-reveal text-center">
               <CardHeader>
-                <CardTitle className="text-2xl text-accent">Daily Cap</CardTitle>
+                <CardTitle className="text-2xl text-accent">Per-Player Cap</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold mb-2">10 $WEALTH</div>
-                <p className="text-muted-foreground">Per-player daily limit creates fair competition</p>
+                <div className="text-3xl font-bold mb-2">100k</div>
+                <p className="text-muted-foreground">Daily $WEALTH conversion window (initial)</p>
               </CardContent>
             </Card>
 
             <Card className="scroll-reveal text-center">
               <CardHeader>
-                <CardTitle className="text-2xl text-accent">Global Pool</CardTitle>
+                <CardTitle className="text-2xl text-accent">Emission Target</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold mb-2">1,000 $WEALTH</div>
-                <p className="text-muted-foreground">Total daily pool resets at UTC midnight</p>
+                <div className="text-3xl font-bold mb-2">≈1M</div>
+                <p className="text-muted-foreground">Daily perceived $WEALTH (≈100M Credits)</p>
               </CardContent>
             </Card>
           </div>
+          <p className="text-center text-[11px] mt-6 text-muted-foreground/60 scroll-reveal">All parameters are provisional & subject to tuning for economic integrity and fairness.</p>
         </div>
       </section>
 
