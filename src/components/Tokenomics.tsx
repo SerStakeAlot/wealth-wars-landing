@@ -4,7 +4,8 @@ import WealthWarsLogo from './WealthWarsLogo';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Coins, Vault, GearSix, ChartPieSlice, Lightning, UsersThree, ShieldCheck, WarningCircle, Infinity } from '@phosphor-icons/react';
+import { Coins, Vault, GearSix, ChartPieSlice, Lightning, UsersThree, ShieldCheck, WarningCircle, Infinity, NavigationArrow } from '@phosphor-icons/react';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
 interface TokenomicsProps { onBack: () => void }
 
@@ -59,6 +60,20 @@ const statusColor: Record<string,string> = {
   reserve: 'bg-slate-500/15 text-slate-300 border-slate-400/30'
 };
 
+const chartColors: Record<string,string> = {
+  circulating: '#10b981',
+  treasury: '#6366f1',
+  dev: '#f59e0b',
+  reserve: '#64748b'
+};
+
+// Prepare numeric data for pie (strip ~ and %)
+const distributionChartData = distribution.map(d => ({
+  name: d.label,
+  value: parseFloat(d.percent.replace(/[^0-9.]/g, '')),
+  status: d.status
+}));
+
 export default function Tokenomics({ onBack }: TokenomicsProps) {
   useScrollReveal('tokenomics');
   useEffect(()=>{ window.scrollTo({ top:0, behavior: 'instant' as ScrollBehavior }); },[]);
@@ -76,6 +91,26 @@ export default function Tokenomics({ onBack }: TokenomicsProps) {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 md:px-8 py-12 space-y-24">
+        {/* Quick Jump Navigation */}
+        <nav className="mb-12 sticky top-16 z-20 bg-background/70 backdrop-blur-md border border-border/40 rounded-lg p-3 shadow-sm flex flex-wrap gap-2 text-xs md:text-sm">
+          {[
+            { id: 'distribution', label: 'Distribution' },
+            { id: 'treasury', label: 'Treasury Unlock' },
+            { id: 'dev-vault', label: 'Developer Vault' },
+            { id: 'economic', label: 'Economic Framework' },
+            { id: 'vision', label: 'Vision' },
+            { id: 'summary', label: 'Summary' }
+          ].map(link => (
+            <a
+              key={link.id}
+              href={`#tokenomics-${link.id}`}
+              className="px-3 py-1 rounded border border-border/40 hover:border-accent/60 hover:text-accent transition-colors font-medium tracking-wide"
+            >{link.label}</a>
+          ))}
+          <div className="ml-auto hidden md:flex items-center gap-1 text-muted-foreground/60">
+            <NavigationArrow size={14} /> jump
+          </div>
+        </nav>
         {/* Intro */}
         <section className="max-w-4xl mx-auto text-center scroll-reveal">
           <h2 className="text-4xl md:text-5xl font-orbitron font-bold tracking-wide mb-6 gold-gradient">🪙 Wealth Wars Tokenomics & Allocation</h2>
@@ -91,16 +126,48 @@ export default function Tokenomics({ onBack }: TokenomicsProps) {
         </section>
 
         {/* Distribution Summary */}
-        <section>
+        <section id="tokenomics-distribution" className="scroll-mt-24">
           <div className="mb-10 text-center scroll-reveal">
             <h3 className="text-3xl md:text-4xl font-bold font-orbitron tracking-wide mb-4 gold-gradient">💰 Distribution Summary</h3>
             <p className="text-muted-foreground max-w-3xl mx-auto">Macro allocation across circulating, strategic pools and controlled reserves.</p>
           </div>
-          <div className="grid lg:grid-cols-2 gap-8">
+          <div className="grid xl:grid-cols-3 gap-8">
+            {/* Pie Chart */}
+            <Card className="scroll-reveal border-border/40 bg-card/40 backdrop-blur-sm xl:col-span-1">
+              <CardHeader><CardTitle className="text-xl flex items-center gap-2"><ChartPieSlice size={26} className="text-accent"/>Allocation Chart</CardTitle></CardHeader>
+              <CardContent className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={distributionChartData}
+                      dataKey="value"
+                      nameKey="name"
+                      innerRadius={60}
+                      outerRadius={110}
+                      paddingAngle={2}
+                    >
+                      {distributionChartData.map((entry, idx) => (
+                        <Cell key={entry.name} fill={chartColors[entry.status]} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(v:any, _n:any, p:any)=> [`${v}%`, p.payload.name]} contentStyle={{ background: '#111', border: '1px solid #333', borderRadius: 8 }} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+                  {distributionChartData.map(d => (
+                    <div key={d.name} className="flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-sm" style={{ background: chartColors[d.status] }} />
+                      <span className="text-muted-foreground truncate" title={d.name}>{d.name.replace('Supply','')}</span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+            <div className="xl:col-span-2 grid lg:grid-cols-2 gap-8">
             <Card className="scroll-reveal border-border/40 bg-card/40 backdrop-blur-sm">
               <CardHeader><CardTitle className="text-xl flex items-center gap-2"><ChartPieSlice size={26} className="text-accent"/>Allocation Table</CardTitle></CardHeader>
               <CardContent className="overflow-x-auto">
-                <table className="w-full text-sm border-separate border-spacing-y-2">
+                <table className="w-full text-sm border-separate border-spacing-y-2 hidden sm:table">
                   <thead className="text-xs uppercase tracking-wider text-muted-foreground/70">
                     <tr><th className="text-left pr-4 py-1">Category</th><th className="text-left pr-4 py-1">% Supply</th><th className="text-left pr-4 py-1">Tokens</th><th className="text-left py-1">Description</th></tr>
                   </thead>
@@ -117,6 +184,21 @@ export default function Tokenomics({ onBack }: TokenomicsProps) {
                     ))}
                   </tbody>
                 </table>
+                {/* Mobile cards */}
+                <div className="sm:hidden space-y-4">
+                  {distribution.map(d => (
+                    <div key={d.label} className="p-4 rounded-md border border-border/40 bg-card/50 backdrop-blur-sm space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-medium text-foreground text-sm flex-1">{d.label}</span>
+                        <span className={`text-[10px] px-2 py-0.5 rounded border ${statusColor[d.status]}`}>{d.percent}</span>
+                      </div>
+                      <div className="text-xs text-muted-foreground flex flex-wrap gap-3">
+                        <span className="text-accent font-semibold">{d.tokens}</span>
+                        <span className="opacity-70">{d.description}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </CardContent>
             </Card>
             <Card className="scroll-reveal border-accent/30 bg-card/40 backdrop-blur-sm" style={{animationDelay:'0.08s'}}>
@@ -128,11 +210,12 @@ export default function Tokenomics({ onBack }: TokenomicsProps) {
                 <p className="text-xs text-amber-300/80 flex items-start gap-2"><WarningCircle size={16} className="mt-0.5"/>Rounding plus provisional reserve modeling can cause temporary sum {'>'} 100%. Final live audit will publish exact on-chain splits.</p>
               </CardContent>
             </Card>
+            </div>
           </div>
         </section>
 
         {/* Treasury Unlock */}
-        <section>
+  <section id="tokenomics-treasury" className="scroll-mt-24">
           <div className="mb-10 text-center scroll-reveal">
             <h3 className="text-3xl md:text-4xl font-bold font-orbitron tracking-wide mb-4 gold-gradient">🏦 October 30 — Treasury Unlock (5.55%)</h3>
             <p className="text-muted-foreground max-w-3xl mx-auto">“The First Treasury Opening” — structured release aligned with early player value & ecosystem bootstrapping.</p>
@@ -141,7 +224,7 @@ export default function Tokenomics({ onBack }: TokenomicsProps) {
             <Card className="scroll-reveal border-border/40 bg-card/40 backdrop-blur-sm">
               <CardHeader><CardTitle className="text-xl flex items-center gap-2"><Vault size={26} className="text-accent"/>Unlock Segments</CardTitle></CardHeader>
               <CardContent className="overflow-x-auto text-sm">
-                <table className="w-full border-separate border-spacing-y-2">
+                <table className="w-full border-separate border-spacing-y-2 hidden sm:table">
                   <thead className="text-xs uppercase tracking-wider text-muted-foreground/70"><tr><th className="text-left pr-4 py-1">Segment</th><th className="text-left pr-4 py-1">% of Unlock</th><th className="text-left pr-4 py-1">Tokens</th><th className="text-left py-1">Description</th></tr></thead>
                   <tbody className="align-top text-muted-foreground">
                     {treasuryUnlock.map(r => (
@@ -154,6 +237,20 @@ export default function Tokenomics({ onBack }: TokenomicsProps) {
                     ))}
                   </tbody>
                 </table>
+                <div className="sm:hidden space-y-4">
+                  {treasuryUnlock.map(r => (
+                    <div key={r.segment} className="p-4 rounded-md border border-border/40 bg-card/50 backdrop-blur-sm space-y-1">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="font-medium text-foreground">{r.segment}</span>
+                        <span className="text-[10px] px-2 py-0.5 rounded bg-accent/10 text-accent border border-accent/30">{r.percent}</span>
+                      </div>
+                      <div className="text-xs text-muted-foreground flex gap-3 flex-wrap">
+                        <span className="text-accent font-semibold">{r.tokens}</span>
+                        <span className="opacity-70">{r.description}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </CardContent>
             </Card>
             <Card className="scroll-reveal border-accent/30 bg-card/40 backdrop-blur-sm" style={{animationDelay:'0.08s'}}>
@@ -169,7 +266,7 @@ export default function Tokenomics({ onBack }: TokenomicsProps) {
         </section>
 
         {/* Developer Vault */}
-        <section>
+  <section id="tokenomics-dev-vault" className="scroll-mt-24">
           <div className="mb-10 text-center scroll-reveal">
             <h3 className="text-3xl md:text-4xl font-bold font-orbitron tracking-wide mb-4 gold-gradient">🧱 Developer Vault (2.06%)</h3>
             <p className="text-muted-foreground max-w-3xl mx-auto">Structured to fund growth, reward early actions, and maintain adaptive liquidity response.</p>
@@ -178,7 +275,7 @@ export default function Tokenomics({ onBack }: TokenomicsProps) {
             <Card className="scroll-reveal border-border/40 bg-card/40 backdrop-blur-sm">
               <CardHeader><CardTitle className="text-xl flex items-center gap-2"><Vault size={26} className="text-accent"/>Vault Allocation</CardTitle></CardHeader>
               <CardContent className="overflow-x-auto text-sm">
-                <table className="w-full border-separate border-spacing-y-2">
+                <table className="w-full border-separate border-spacing-y-2 hidden sm:table">
                   <thead className="text-xs uppercase tracking-wider text-muted-foreground/70"><tr><th className="text-left pr-4 py-1">Purpose</th><th className="text-left pr-4 py-1">% of Vault</th><th className="text-left pr-4 py-1">Tokens</th><th className="text-left py-1">Description</th></tr></thead>
                   <tbody className="align-top text-muted-foreground">
                     {devVault.map(r => (
@@ -191,6 +288,20 @@ export default function Tokenomics({ onBack }: TokenomicsProps) {
                     ))}
                   </tbody>
                 </table>
+                <div className="sm:hidden space-y-4">
+                  {devVault.map(r => (
+                    <div key={r.purpose} className="p-4 rounded-md border border-border/40 bg-card/50 backdrop-blur-sm space-y-1">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="font-medium text-foreground">{r.purpose}</span>
+                        <span className="text-[10px] px-2 py-0.5 rounded bg-accent/10 text-accent border border-accent/30">{r.percent}</span>
+                      </div>
+                      <div className="text-xs text-muted-foreground flex gap-3 flex-wrap">
+                        <span className="text-accent font-semibold">{r.tokens}</span>
+                        <span className="opacity-70">{r.description}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </CardContent>
             </Card>
             <Card className="scroll-reveal border-accent/30 bg-card/40 backdrop-blur-sm" style={{animationDelay:'0.08s'}}>
@@ -206,7 +317,7 @@ export default function Tokenomics({ onBack }: TokenomicsProps) {
         </section>
 
         {/* Economic Framework */}
-        <section>
+  <section id="tokenomics-economic" className="scroll-mt-24">
           <div className="mb-10 text-center scroll-reveal">
             <h3 className="text-3xl md:text-4xl font-bold font-orbitron tracking-wide mb-4 gold-gradient">⚙️ Economic Framework</h3>
             <p className="text-muted-foreground max-w-3xl mx-auto">Simplified operational levers shaping emission pacing & value recycling.</p>
@@ -222,7 +333,7 @@ export default function Tokenomics({ onBack }: TokenomicsProps) {
         </section>
 
         {/* Vision */}
-        <section className="scroll-reveal">
+  <section id="tokenomics-vision" className="scroll-reveal scroll-mt-24">
           <Card className="border-accent/30 bg-card/40 backdrop-blur-sm">
             <CardHeader><CardTitle className="text-2xl font-orbitron tracking-wide gold-gradient">🌐 Vision Statement</CardTitle></CardHeader>
             <CardContent className="space-y-4 text-muted-foreground text-lg leading-relaxed">
@@ -232,13 +343,13 @@ export default function Tokenomics({ onBack }: TokenomicsProps) {
         </section>
 
         {/* Summary Table */}
-        <section>
+  <section id="tokenomics-summary" className="scroll-mt-24">
           <div className="mb-10 text-center scroll-reveal">
             <h3 className="text-3xl md:text-4xl font-bold font-orbitron tracking-wide mb-4 gold-gradient">✅ Summary</h3>
           </div>
           <Card className="scroll-reveal border-border/40 bg-card/40 backdrop-blur-sm">
             <CardContent className="pt-6 overflow-x-auto">
-              <table className="w-full text-sm border-separate border-spacing-y-2">
+              <table className="w-full text-sm border-separate border-spacing-y-2 hidden sm:table">
                 <thead className="text-xs uppercase tracking-wider text-muted-foreground/70"><tr><th className="text-left pr-4 py-1">Group</th><th className="text-left pr-4 py-1">Allocation</th><th className="text-left py-1">Purpose</th></tr></thead>
                 <tbody className="align-top text-muted-foreground">
                   {summary.map(s => (
@@ -250,6 +361,19 @@ export default function Tokenomics({ onBack }: TokenomicsProps) {
                   ))}
                 </tbody>
               </table>
+              <div className="sm:hidden space-y-4">
+                {summary.map(s => (
+                  <div key={s.group} className="p-4 rounded-md border border-border/40 bg-card/50 backdrop-blur-sm space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="font-medium text-foreground">{s.group}</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded bg-accent/10 text-accent border border-accent/30">{s.allocation}</span>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {s.purpose}
+                    </div>
+                  </div>
+                ))}
+              </div>
               <p className="mt-4 text-xs text-muted-foreground/60">Rounding + provisional reserve modeling may cause temporary aggregate {'>'} 100%. Final audited splits will be published before main launch.</p>
             </CardContent>
           </Card>

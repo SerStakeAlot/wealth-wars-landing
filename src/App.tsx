@@ -259,11 +259,18 @@ function App() {
 
       {/* Footer */}
       <footer className="py-12 px-4 border-t border-border/50">
-        <div className="max-w-6xl mx-auto text-center">
-          <WealthWarsLogo size="md" className="mb-4" />
-          <p className="text-muted-foreground">
+        <div className="max-w-6xl mx-auto flex flex-col items-center gap-4 text-center">
+          <WealthWarsLogo size="md" className="mb-2" />
+          <p className="text-muted-foreground max-w-xl text-sm">
             Build, defend, and raid for advantage in a constrained resource economy.
           </p>
+          <div className="flex flex-wrap gap-4 justify-center text-xs uppercase tracking-wide font-medium">
+            <button onClick={() => setCurrentView('whitepaper')} className="text-muted-foreground hover:text-accent transition-colors">Whitepaper</button>
+            <button onClick={() => setCurrentView('roadmap')} className="text-muted-foreground hover:text-accent transition-colors">Roadmap</button>
+            <button onClick={() => setCurrentView('demo')} className="text-muted-foreground hover:text-accent transition-colors">Demo</button>
+            <button onClick={() => setCurrentView('tokenomics')} className="text-muted-foreground hover:text-accent transition-colors">Tokenomics</button>
+          </div>
+          <p className="text-[10px] text-muted-foreground/60">© {new Date().getFullYear()} Wealth Wars. All rights reserved.</p>
         </div>
       </footer>
     </div>
