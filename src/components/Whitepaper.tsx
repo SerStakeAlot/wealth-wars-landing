@@ -130,26 +130,32 @@ export default function Whitepaper({ onBack }: WhitepaperProps) {
           {/* Exchange Pool Economics */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-2xl text-accent">Exchange Pool (Current Beta)</CardTitle>
+              <CardTitle className="text-2xl text-accent">Redemption & Conversion Framework</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid md:grid-cols-2 gap-6">
                 <div>
-                  <h4 className="font-semibold mb-2">Parameters</h4>
+                  <h4 className="font-semibold mb-2">Updated Reference Values</h4>
                   <ul className="space-y-2 text-muted-foreground">
-                    <li><strong>Rate:</strong> 75 Credits = 1 $WEALTH</li>
-                    <li><strong>Fee:</strong> 1% on input Credits</li>
-                    <li><strong>Global Daily Cap:</strong> 1,000 $WEALTH</li>
-                    <li><strong>Per-Player Daily Cap:</strong> 10 $WEALTH</li>
-                    <li><strong>Reset:</strong> UTC midnight</li>
+                    <li><strong>Soft Reference Ratio:</strong> 100 Credits = 1 $WEALTH <span className="text-xs opacity-70">(tunable)</span></li>
+                    <li><strong>Clock-In Base Reward:</strong> 1,000 Credits per successful check-in (30m cooldown)</li>
+                    <li><strong>Aggregate Daily Emission Target:</strong> ≈ 100M Credits (≈ 1M $WEALTH perceived)</li>
+                    <li><strong>Per-Player Daily Conversion Cap (Initial):</strong> 100,000 $WEALTH</li>
+                    <li><strong>Liquidity / Pool Refill:</strong> Treasury unlock tranches + 5–10% routed inflows / buybacks</li>
+                    <li><strong>Founding Event:</strong> Oct 30 Treasury Opening (5.55% structured unlock)</li>
+                    <li><strong>Developer Vault Allocation:</strong> 2.06% (demo rewards, liquidity, quests, ops)</li>
                   </ul>
                 </div>
                 <div>
-                  <h4 className="font-semibold mb-2">Rationale</h4>
-                  <p className="text-muted-foreground">
-                    One-way conversion with predictable scarcity creates strategic tension. 
-                    Simplicity and transparency over complex bonding curves during early development.
-                  </p>
+                  <h4 className="font-semibold mb-2">Rationale & Notes</h4>
+                  <ul className="space-y-2 text-muted-foreground text-sm leading-relaxed">
+                    <li><strong>Soft Ratio vs Hard Rate:</strong> Conversion uses a reference ratio while caps + pacing prevent runaway extraction.</li>
+                    <li><strong>Scaling Window:</strong> Higher per-player cap enables meaningful progression while still bounded by treasury cadence.</li>
+                    <li><strong>Economic Recycling:</strong> Sinks (lottery, shields, upgrades) recapture circulating value and extend runway.</li>
+                    <li><strong>Founding Credits:</strong> Demo phase Credits convert proportionally into a small reserved main-economy share (1–2%).</li>
+                    <li><strong>Tunable Parameters:</strong> All values subject to adjustment prior to or during early live stabilization.</li>
+                  </ul>
+                  <p className="mt-3 text-xs text-muted-foreground/60">Previous beta figures (75:1 rate, 10 $WEALTH per-player cap) superseded by the above framework.</p>
                 </div>
               </div>
             </CardContent>
