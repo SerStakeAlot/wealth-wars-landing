@@ -139,8 +139,9 @@ export default function Whitepaper({ onBack }: WhitepaperProps) {
                   <ul className="space-y-2 text-muted-foreground">
                     <li><strong>Soft Reference Ratio:</strong> 100 Credits = 1 $WEALTH <span className="text-xs opacity-70">(tunable)</span></li>
                     <li><strong>Clock-In Base Reward:</strong> 1,000 Credits per successful check-in (30m cooldown)</li>
+                    <li><strong>Global Exchange Pool (Daily):</strong> 1,000,000 $WEALTH shared across active players</li>
+                    <li><strong>Per-Player Daily Conversion Cap (Initial):</strong> 100,000 $WEALTH (effective cap = min(100k, Pool / Active Players))</li>
                     <li><strong>Aggregate Daily Emission Target:</strong> ≈ 100M Credits (≈ 1M $WEALTH perceived)</li>
-                    <li><strong>Per-Player Daily Conversion Cap (Initial):</strong> 100,000 $WEALTH</li>
                     <li><strong>Liquidity / Pool Refill:</strong> Treasury unlock tranches + 5–10% routed inflows / buybacks</li>
                     <li><strong>Founding Event:</strong> Oct 30 Treasury Opening (5.55% structured unlock)</li>
                     <li><strong>Developer Vault Allocation:</strong> 2.06% (demo rewards, liquidity, quests, ops)</li>
@@ -150,7 +151,8 @@ export default function Whitepaper({ onBack }: WhitepaperProps) {
                   <h4 className="font-semibold mb-2">Rationale & Notes</h4>
                   <ul className="space-y-2 text-muted-foreground text-sm leading-relaxed">
                     <li><strong>Soft Ratio vs Hard Rate:</strong> Conversion uses a reference ratio while caps + pacing prevent runaway extraction.</li>
-                    <li><strong>Scaling Window:</strong> Higher per-player cap enables meaningful progression while still bounded by treasury cadence.</li>
+                    <li><strong>Scaling Window:</strong> Higher per-player cap enables meaningful progression while still bounded by treasury cadence and the global pool constraint.</li>
+                    <li><strong>Participation-Proportional Fairness:</strong> If 100 players are active on a day, the 1,000,000 pool implies a practical limit of 10,000 each, even though the hard per-player ceiling is 100,000.</li>
                     <li><strong>Economic Recycling:</strong> Sinks (lottery, shields, upgrades) recapture circulating value and extend runway.</li>
                     <li><strong>Founding Credits:</strong> Demo phase Credits convert proportionally into a small reserved main-economy share (1–2%).</li>
                     <li><strong>Tunable Parameters:</strong> All values subject to adjustment prior to or during early live stabilization.</li>

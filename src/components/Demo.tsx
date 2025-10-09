@@ -142,6 +142,7 @@ export default function Demo({ onBack }: DemoProps) {
                   <Crown size={24} className="text-accent" />
                   <span className="text-foreground">Title Badge: <span className="font-semibold text-accent">“Founding Citizen — Season Zero.”</span></span>
                 </div>
+                <p className="text-xs text-muted-foreground/70 mt-4">Note: In main economy, daily conversions draw from a <span className="text-accent font-semibold">1,000,000 $WEALTH</span> global pool shared across active players. Effective per-player limit is min(100k, Pool / Actives).</p>
               </CardContent>
             </Card>
           </div>

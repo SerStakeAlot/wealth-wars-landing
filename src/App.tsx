@@ -171,17 +171,17 @@ function App() {
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold mb-2">100k</div>
-                <p className="text-muted-foreground">Daily $WEALTH conversion window (initial)</p>
+                <p className="text-muted-foreground">Max per player (initial); can be reduced by global pool</p>
               </CardContent>
             </Card>
 
             <Card className="scroll-reveal text-center">
               <CardHeader>
-                <CardTitle className="text-2xl text-accent">Emission Target</CardTitle>
+                <CardTitle className="text-2xl text-accent">Global Pool (Daily)</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold mb-2">≈1M</div>
-                <p className="text-muted-foreground">Daily perceived $WEALTH (≈100M Credits)</p>
+                <div className="text-3xl font-bold mb-2">1,000,000</div>
+                <p className="text-muted-foreground">Shared across active players → effective per-player cap = min(100k, 1,000,000 / actives). E.g., 100 actives → 10k.</p>
               </CardContent>
             </Card>
           </div>

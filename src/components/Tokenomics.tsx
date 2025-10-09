@@ -39,8 +39,9 @@ const devVault = [
 
 const economicFramework = [
   { label: 'Soft Conversion Ratio', value: '1 $WEALTH = 100 Credits' },
+  { label: 'Global Exchange Pool (Daily)', value: '1,000,000 $WEALTH shared across actives' },
+  { label: 'Per-Player Max Convertible / Day', value: '100k $WEALTH (effective cap = min(100k, Pool / Active Players))' },
   { label: 'Daily Clock-In Reward (Aggregate)', value: '≈ 100M Credits (≈ 1M $WEALTH perceived)' },
-  { label: 'Per-Player Max Convertible / Day', value: '100k $WEALTH (anti-hoarding cap)' },
   { label: 'Treasury Replenishment', value: '5–10% of inflows / buybacks recycled' },
   { label: 'Inflation Sinks', value: 'Business upgrades, lotteries, fees, anti-bot gating' }
 ];
