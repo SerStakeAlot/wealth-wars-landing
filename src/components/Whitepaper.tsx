@@ -144,7 +144,7 @@ export default function Whitepaper({ onBack }: WhitepaperProps) {
                     <li><strong>Aggregate Daily Emission Target:</strong> ≈ 100M Credits (≈ 1M $WEALTH perceived)</li>
                     <li><strong>Liquidity / Pool Refill:</strong> Treasury unlock tranches + 5–10% routed inflows / buybacks</li>
                     <li><strong>Founding Event:</strong> Oct 30 Treasury Opening (5.55% structured unlock)</li>
-                    <li><strong>Developer Vault Allocation:</strong> 2.06% (demo rewards, liquidity, quests, ops)</li>
+                    <li><strong>Developer Vault Allocation:</strong> 4.06% (demo rewards, liquidity, quests, ops)</li>
                   </ul>
                 </div>
                 <div>

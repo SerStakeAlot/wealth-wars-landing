@@ -8,7 +8,8 @@ import Tokenomics from './components/Tokenomics';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ArrowSquareOut, Shield, Coins, Trophy, Users, Lightning } from '@phosphor-icons/react';
+import { ArrowSquareOut, Shield, Coins, Trophy, Users, Lightning, Info } from '@phosphor-icons/react';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 function App() {
   const [currentView, setCurrentView] = useState<'home' | 'whitepaper' | 'roadmap' | 'demo' | 'tokenomics'>('home');
@@ -167,7 +168,19 @@ function App() {
 
             <Card className="scroll-reveal text-center">
               <CardHeader>
-                <CardTitle className="text-2xl text-accent">Per-Player Cap</CardTitle>
+                <CardTitle className="text-2xl text-accent flex items-center gap-2 justify-center">
+                  Per-Player Cap
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button aria-label="Per-player cap info" className="text-muted-foreground hover:text-accent transition-colors">
+                        <Info size={16} weight="bold" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" sideOffset={6}>
+                      Hard ceiling 100k per player; effective limit = min(100k, Pool / Active Players).
+                    </TooltipContent>
+                  </Tooltip>
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold mb-2">100k</div>
@@ -177,7 +190,19 @@ function App() {
 
             <Card className="scroll-reveal text-center">
               <CardHeader>
-                <CardTitle className="text-2xl text-accent">Global Pool (Daily)</CardTitle>
+                <CardTitle className="text-2xl text-accent flex items-center gap-2 justify-center">
+                  Global Pool (Daily)
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button aria-label="Global pool info" className="text-muted-foreground hover:text-accent transition-colors">
+                        <Info size={16} weight="bold" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" sideOffset={6}>
+                      1,000,000 $WEALTH shared across actives. Example: 100 actives → ~10,000 each.
+                    </TooltipContent>
+                  </Tooltip>
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold mb-2">1,000,000</div>

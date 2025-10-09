@@ -19,7 +19,7 @@ const supply = {
 const distribution = [
   { label: 'Public Circulating Supply', percent: '92.39%', tokens: '≈ 923M', description: 'Community holders + open-market liquidity', status: 'circulating' },
   { label: 'Treasury (Oct 30 Unlock)', percent: '5.55%', tokens: '≈ 55.5M', description: 'Founding distribution + game pools', status: 'treasury' },
-  { label: 'Developer Vault', percent: '2.06%', tokens: '≈ 20.6M', description: 'Development + demo rewards + liquidity', status: 'dev' },
+  { label: 'Developer Vault', percent: '4.06%', tokens: '≈ 40.6M', description: 'Development + demo rewards + liquidity', status: 'dev' },
   { label: 'Additional Private Reserve (~est.)', percent: '~2%', tokens: '≈ 20M', description: 'Backup liquidity / ops reserve (segmented)', status: 'reserve' }
 ];
 
@@ -49,7 +49,7 @@ const economicFramework = [
 const summary = [
   { group: 'Community (Circulating)', allocation: '92.39%', purpose: 'Public holders & market liquidity' },
   { group: 'Treasury (Oct 30 Unlock)', allocation: '5.55%', purpose: 'Founding rewards + game pool' },
-  { group: 'Developer Vault', allocation: '2.06%', purpose: 'Demo rewards + liquidity + development' },
+  { group: 'Developer Vault', allocation: '4.06%', purpose: 'Demo rewards + liquidity + development' },
   { group: 'Additional Private Reserve', allocation: '~2%', purpose: 'Backup liquidity / operations' },
   { group: 'Total Supply', allocation: '100%', purpose: 'Fixed — 999,900,236 $WEALTH' }
 ];
@@ -206,7 +206,7 @@ export default function Tokenomics({ onBack }: TokenomicsProps) {
               <CardHeader><CardTitle className="text-xl flex items-center gap-2"><ShieldCheck size={26} className="text-accent"/>Supply Integrity</CardTitle></CardHeader>
               <CardContent className="space-y-4 text-sm md:text-base text-muted-foreground">
                 <p><span className="text-foreground font-semibold">Fixed Supply:</span> {supply.total} $WEALTH — no additional minting planned.</p>
-                <p><span className="text-foreground font-semibold">Controlled Pools:</span> Combined Treasury + Developer Vault represents ≈ 7.61% strategic governance & emissions pacing.</p>
+                <p><span className="text-foreground font-semibold">Controlled Pools:</span> Combined Treasury + Developer Vault represents ≈ 9.61% strategic governance & emissions pacing.</p>
                 <p><span className="text-foreground font-semibold">Reserve (~2%):</span> Segregated for contingency & liquidity smoothing; may remain dormant unless market health requires deployment.</p>
                 <p className="text-xs text-amber-300/80 flex items-start gap-2"><WarningCircle size={16} className="mt-0.5"/>Rounding plus provisional reserve modeling can cause temporary sum {'>'} 100%. Final live audit will publish exact on-chain splits.</p>
               </CardContent>
@@ -269,7 +269,7 @@ export default function Tokenomics({ onBack }: TokenomicsProps) {
         {/* Developer Vault */}
   <section id="tokenomics-dev-vault" className="scroll-mt-24">
           <div className="mb-10 text-center scroll-reveal">
-            <h3 className="text-3xl md:text-4xl font-bold font-orbitron tracking-wide mb-4 gold-gradient">🧱 Developer Vault (2.06%)</h3>
+            <h3 className="text-3xl md:text-4xl font-bold font-orbitron tracking-wide mb-4 gold-gradient">🧱 Developer Vault (4.06%)</h3>
             <p className="text-muted-foreground max-w-3xl mx-auto">Structured to fund growth, reward early actions, and maintain adaptive liquidity response.</p>
           </div>
           <div className="grid md:grid-cols-2 gap-8">
