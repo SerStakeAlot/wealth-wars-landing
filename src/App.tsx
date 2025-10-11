@@ -85,9 +85,11 @@ function App() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
             <Button variant="outline" size="lg" className="text-lg px-8 py-4" onClick={() => setCurrentView('whitepaper')}>Whitepaper</Button>
             <Button variant="outline" size="lg" className="text-lg px-8 py-4" onClick={() => setCurrentView('roadmap')}>Roadmap</Button>
-            <Button variant="outline" size="lg" className="text-lg px-8 py-4 relative overflow-hidden group" onClick={() => setCurrentView('demo')}>
-              <span className="pr-3">Demo</span>
-              <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-400/30 group-hover:border-amber-300 transition-colors">Soon</span>
+            <Button asChild variant="outline" size="lg" className="text-lg px-8 py-4 relative overflow-hidden group">
+              <a href="/demo/" aria-label="Play Demo at /demo/">
+                <span className="pr-3">Play Demo</span>
+                <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-400/30 group-hover:border-amber-300 transition-colors">WebGL</span>
+              </a>
             </Button>
             <Button variant="outline" size="lg" className="text-lg px-8 py-4" onClick={() => setCurrentView('tokenomics')}>Tokenomics</Button>
           </div>
@@ -293,7 +295,7 @@ function App() {
           <div className="flex flex-wrap gap-4 justify-center text-xs uppercase tracking-wide font-medium">
             <button onClick={() => setCurrentView('whitepaper')} className="text-muted-foreground hover:text-accent transition-colors">Whitepaper</button>
             <button onClick={() => setCurrentView('roadmap')} className="text-muted-foreground hover:text-accent transition-colors">Roadmap</button>
-            <button onClick={() => setCurrentView('demo')} className="text-muted-foreground hover:text-accent transition-colors">Demo</button>
+            <a href="/demo/" className="text-muted-foreground hover:text-accent transition-colors">Demo</a>
             <button onClick={() => setCurrentView('tokenomics')} className="text-muted-foreground hover:text-accent transition-colors">Tokenomics</button>
           </div>
           <p className="text-[10px] text-muted-foreground/60">© {new Date().getFullYear()} Wealth Wars. All rights reserved.</p>

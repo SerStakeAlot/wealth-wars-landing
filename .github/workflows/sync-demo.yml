@@ -1,0 +1,156 @@
+name: Sync Demo Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_repo:
+        description: 'Unity build repository (owner/repo)'
+        required: true
+        type: string
+        default: 'SerStakeAlot/wealth-wars-build'
+      build_ref:
+        description: 'Branch, tag, or commit SHA'
+        required: false
+        type: string
+        default: 'main'
+      build_path:
+        description: 'Path to WebGL export folder in the build repo (containing index.html and Build/)'
+        required: false
+        type: string
+        default: '.'
+
+permissions:
+  contents: write
+
+jobs:
+  sync-demo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout landing site repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout Unity build repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.build_repo }}
+          ref: ${{ inputs.build_ref }}
+          path: unity-build
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Sync Unity WebGL build to public/demo/
+        run: |
+          echo "==> Syncing Unity WebGL build from ${{ inputs.build_repo }}@${{ inputs.build_ref }}"
+          
+          # Clean existing demo files (except this placeholder if Unity files aren't ready)
+          rm -rf public/demo/Build public/demo/TemplateData public/demo/StreamingAssets
+          
+          # Define source path
+          SOURCE_PATH="unity-build/${{ inputs.build_path }}"
+          
+          # Check if source exists
+          if [ ! -d "$SOURCE_PATH" ]; then
+            echo "ERROR: Source path $SOURCE_PATH does not exist!"
+            exit 1
+          fi
+          
+          # Check if index.html exists
+          if [ ! -f "$SOURCE_PATH/index.html" ]; then
+            echo "ERROR: index.html not found in $SOURCE_PATH"
+            exit 1
+          fi
+          
+          echo "==> Found Unity WebGL export at $SOURCE_PATH"
+          
+          # Copy Unity files to public/demo/
+          echo "==> Copying index.html..."
+          cp "$SOURCE_PATH/index.html" public/demo/
+          
+          # Copy Build folder
+          if [ -d "$SOURCE_PATH/Build" ]; then
+            echo "==> Copying Build/ folder..."
+            cp -r "$SOURCE_PATH/Build" public/demo/
+          else
+            echo "WARNING: Build/ folder not found"
+          fi
+          
+          # Copy TemplateData folder
+          if [ -d "$SOURCE_PATH/TemplateData" ]; then
+            echo "==> Copying TemplateData/ folder..."
+            cp -r "$SOURCE_PATH/TemplateData" public/demo/
+          else
+            echo "WARNING: TemplateData/ folder not found"
+          fi
+          
+          # Copy StreamingAssets if present
+          if [ -d "$SOURCE_PATH/StreamingAssets" ]; then
+            echo "==> Copying StreamingAssets/ folder..."
+            cp -r "$SOURCE_PATH/StreamingAssets" public/demo/
+          fi
+          
+          echo "==> Sync complete!"
+          echo "==> Files in public/demo/:"
+          ls -lh public/demo/
+
+      - name: Validate and fix asset paths in index.html
+        run: |
+          echo "==> Checking asset paths in public/demo/index.html"
+          
+          if [ -f "public/demo/index.html" ]; then
+            # Check if paths are already relative
+            if grep -q 'src="Build/' public/demo/index.html || grep -q 'href="Build/' public/demo/index.html; then
+              echo "==> Paths appear to be relative already"
+            elif grep -q 'src="/Build/' public/demo/index.html || grep -q 'href="/Build/' public/demo/index.html; then
+              echo "==> Converting absolute paths to relative..."
+              sed -i 's|src="/Build/|src="./Build/|g' public/demo/index.html
+              sed -i 's|href="/Build/|href="./Build/|g' public/demo/index.html
+              sed -i 's|src="/TemplateData/|src="./TemplateData/|g' public/demo/index.html
+              sed -i 's|href="/TemplateData/|href="./TemplateData/|g' public/demo/index.html
+              sed -i 's|src="/StreamingAssets/|src="./StreamingAssets/|g' public/demo/index.html
+              sed -i 's|href="/StreamingAssets/|href="./StreamingAssets/|g' public/demo/index.html
+              echo "==> Paths converted to relative"
+            else
+              echo "==> Paths may already be correct or using a different format"
+            fi
+            
+            echo "==> Sample of index.html after path fixes:"
+            grep -E '(src=|href=)' public/demo/index.html | head -10 || echo "No src/href attributes found"
+          else
+            echo "ERROR: public/demo/index.html not found after sync!"
+            exit 1
+          fi
+
+      - name: Commit and push changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          git add public/demo/
+          
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Sync Unity WebGL demo from ${{ inputs.build_repo }}@${{ inputs.build_ref }}"
+            git push
+            echo "==> Demo synced and pushed to main branch"
+            echo "==> Will be deployed at https://wealthwars.fun/demo/ after GitHub Pages deployment completes"
+          fi
+
+      - name: Summary
+        run: |
+          echo "## Sync Demo Build - Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **Unity WebGL build synced successfully**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Source:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Repository: \`${{ inputs.build_repo }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Ref: \`${{ inputs.build_ref }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Path: \`${{ inputs.build_path }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Destination:** \`public/demo/\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Next Steps:**" >> $GITHUB_STEP_SUMMARY
+          echo "1. Wait for GitHub Pages deployment to complete" >> $GITHUB_STEP_SUMMARY
+          echo "2. Visit https://wealthwars.fun/demo/ to verify" >> $GITHUB_STEP_SUMMARY
+          echo "3. Check that all assets load without 404 errors" >> $GITHUB_STEP_SUMMARY
