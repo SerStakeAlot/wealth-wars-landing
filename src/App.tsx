@@ -81,6 +81,15 @@ function App() {
           <p className="text-xl md:text-2xl text-muted-foreground mb-8 leading-relaxed">
             Build, defend, and raid for advantage in a constrained resource economy—master timing and pressure to turn daily production into lasting <span className="text-accent font-semibold">$WEALTH</span>.
           </p>
+          <div className="mt-4 mb-8">
+            <a
+              href="/demo/"
+              className="inline-block rounded-md px-5 py-3 font-semibold text-black"
+              style={{ background: 'linear-gradient(135deg,#c9a227,#c27d1a)' }}
+            >
+              Play Demo (Holders)
+            </a>
+          </div>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
             <Button variant="outline" size="lg" className="text-lg px-8 py-4" onClick={() => setCurrentView('whitepaper')}>Whitepaper</Button>

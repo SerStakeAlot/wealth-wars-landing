@@ -1,0 +1,76 @@
+name: Sync Demo Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_repo:
+        description: "Owner/Repo of the Unity WebGL build (e.g., SerStakeAlot/wealth-wars-build)"
+        required: true
+        type: string
+      build_ref:
+        description: "Git ref (branch, tag, or commit) to use from the build repo"
+        required: false
+        default: main
+        type: string
+      build_path:
+        description: "Path within the build repo where index.html and Build/ live (e.g., WebGL/ or .)"
+        required: true
+        type: string
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout website repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Checkout external build repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.build_repo }}
+          ref: ${{ inputs.build_ref }}
+          path: external-build
+
+      - name: Prepare demo folder
+        run: |
+          rm -rf public/demo/* || true
+          mkdir -p public/demo
+
+      - name: Copy Unity WebGL export into public/demo
+        run: |
+          SRC="external-build/${{ inputs.build_path }}"
+          if [ ! -d "$SRC" ] && [ ! -f "$SRC/index.html" ]; then
+            echo "ERROR: build_path '$SRC' not found or missing index.html" >&2
+            ls -la external-build || true
+            exit 1
+          fi
+          cp -R "$SRC"/* public/demo/
+          echo "Contents of public/demo:" && ls -la public/demo
+
+      - name: Validate demo contains index.html
+        run: |
+          if [ ! -f public/demo/index.html ]; then
+            echo "ERROR: public/demo/index.html missing after copy" >&2
+            exit 1
+          fi
+
+      - name: Commit changes
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add -A
+            git commit -m "chore(demo): sync from ${{ inputs.build_repo }}@${{ inputs.build_ref }} path=${{ inputs.build_path }}"
+          else
+            echo "No changes to commit."
+          fi
+
+      - name: Push changes
+        if: ${{ steps.commit.outcome != 'skipped' }}
+        run: |
+          git push origin HEAD:main

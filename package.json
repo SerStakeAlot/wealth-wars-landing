@@ -10,7 +10,8 @@
         "lint": "eslint .",
         "optimize": "vite optimize",
         "preview": "vite preview",
-        "generate:og": "node scripts/generate-og.mjs"
+        "generate:og": "node scripts/generate-og.mjs",
+        "docs:core-loop": "node scripts/generate-core-loop-doc.mjs"
     },
     "dependencies": {
         "@github/spark": "^0.39.0",
@@ -90,7 +91,8 @@
         "typescript": "~5.7.2",
         "typescript-eslint": "^8.38.0",
         "vite": "^6.3.5",
-        "sharp": "^0.33.4"
+        "sharp": "^0.33.4",
+        "docx": "^8.6.0"
     },
     "workspaces": {
         "packages": [
