@@ -179,4 +179,4 @@ If you encounter issues:
 
 ---
 
-**Last Updated:** October 2025
+**Last Updated:** October 11, 2025
