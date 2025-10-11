@@ -64,6 +64,18 @@ Make any commit to `main` (e.g. update README) or use the workflow dispatch butt
 | HTTP only | Wait for certificate, then enable HTTPS in Pages settings. |
 | Old assets cached | Bump query param or invalidate by changing file hash (Vite already hashes). |
 
+## 🎮 Unity WebGL Demo
+
+The Unity WebGL demo is served at `https://wealthwars.fun/demo/`. 
+
+To sync a new Unity build to the demo route, use the **"Sync Demo Build"** GitHub Actions workflow. See [DEMO-SYNC.md](./DEMO-SYNC.md) for detailed instructions.
+
+**Quick Start:**
+1. Go to Actions → "Sync Demo Build" → Run workflow
+2. Provide the Unity build repository details
+3. Wait for deployment to complete
+4. Visit https://wealthwars.fun/demo/
+
 ---
 
 🧹 Just Exploring?
