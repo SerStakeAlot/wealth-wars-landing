@@ -1,0 +1,103 @@
+name: Auto Sync Demo Build
+
+on:
+  # Hourly fallback to pick up latest Unity build
+  schedule:
+    - cron: '0 * * * *'
+  # Allow manual trigger
+  workflow_dispatch: {}
+  # Allow Unity repo to ping this workflow when a new build is published
+  repository_dispatch:
+    types: [unity-webgl-updated]
+
+permissions:
+  contents: write
+
+env:
+  BUILD_REPO: SerStakeAlot/wealthwarsbuild
+  BUILD_REF: main
+  BUILD_PATH: .
+
+jobs:
+  auto-sync-demo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout landing site repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout Unity build repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.BUILD_REPO }}
+          ref: ${{ env.BUILD_REF }}
+          path: unity-build
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Sync Unity WebGL build to public/demo/
+        run: |
+          echo "==> Auto-syncing Unity WebGL build from ${BUILD_REPO}@${BUILD_REF}"
+
+          # Clean existing demo files
+          rm -rf public/demo/Build public/demo/TemplateData public/demo/StreamingAssets
+
+          SOURCE_PATH="unity-build/${BUILD_PATH}"
+          if [ ! -d "$SOURCE_PATH" ]; then
+            echo "ERROR: Source path $SOURCE_PATH does not exist!" && exit 1
+          fi
+          if [ ! -f "$SOURCE_PATH/index.html" ]; then
+            echo "ERROR: index.html not found in $SOURCE_PATH" && exit 1
+          fi
+
+          echo "==> Copying index.html and asset folders..."
+          cp "$SOURCE_PATH/index.html" public/demo/
+          [ -d "$SOURCE_PATH/Build" ] && cp -r "$SOURCE_PATH/Build" public/demo/ || echo "WARNING: Build/ missing"
+          [ -d "$SOURCE_PATH/TemplateData" ] && cp -r "$SOURCE_PATH/TemplateData" public/demo/ || echo "WARNING: TemplateData/ missing"
+          [ -d "$SOURCE_PATH/StreamingAssets" ] && cp -r "$SOURCE_PATH/StreamingAssets" public/demo/ || true
+
+          # Remove duplicate legacy artifacts if present
+          rm -f public/demo/Build/WealthWardsBuild.* || true
+
+          echo "==> Files in public/demo/:" && ls -lh public/demo/
+
+      - name: Ensure relative asset paths in index.html
+        run: |
+          if [ -f "public/demo/index.html" ]; then
+            if grep -q 'src="/Build/' public/demo/index.html || grep -q 'href="/Build/' public/demo/index.html; then
+              sed -i 's|src="/Build/|src="./Build/|g' public/demo/index.html
+              sed -i 's|href="/Build/|href="./Build/|g' public/demo/index.html
+              sed -i 's|src="/TemplateData/|src="./TemplateData/|g' public/demo/index.html
+              sed -i 's|href="/TemplateData/|href="./TemplateData/|g' public/demo/index.html
+              sed -i 's|src="/StreamingAssets/|src="./StreamingAssets/|g' public/demo/index.html
+              sed -i 's|href="/StreamingAssets/|href="./StreamingAssets/|g' public/demo/index.html
+              echo "==> Converted absolute paths to relative"
+            else
+              echo "==> Asset paths already relative or use dynamic config"
+            fi
+          else
+            echo "ERROR: public/demo/index.html not found" && exit 1
+          fi
+
+      - name: Commit and push changes (if any)
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add public/demo/
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            # Try to include Unity build commit for traceability
+            UNITY_SHA=$(git -C unity-build rev-parse --short HEAD || echo unknown)
+            git commit -m "chore(demo): auto-sync Unity WebGL build from ${BUILD_REPO}@${BUILD_REF} (${UNITY_SHA})"
+            git push
+            echo "==> Demo updated and pushed"
+          fi
+
+      - name: Summary
+        run: |
+          echo "## Auto Sync Demo Build - Summary" >> $GITHUB_STEP_SUMMARY
+          echo "**Source:** ${BUILD_REPO}@${BUILD_REF} (${UNITY_SHA:-unknown})" >> $GITHUB_STEP_SUMMARY
+          echo "**Destination:** public/demo/" >> $GITHUB_STEP_SUMMARY
+          echo "Deployed to https://wealthwars.fun/demo/ via GitHub Pages." >> $GITHUB_STEP_SUMMARY
