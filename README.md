@@ -70,6 +70,8 @@ The Unity WebGL demo is served at `https://wealthwars.fun/demo/`.
 
 To sync a new Unity build to the demo route, use the **"Sync Demo Build"** GitHub Actions workflow. See [DEMO-SYNC.md](./DEMO-SYNC.md) for detailed instructions.
 
+Default source repo: `SerStakeAlot/wealthwarsbuild` (WebGL export at repo root)
+
 **Quick Start:**
 1. Go to Actions → "Sync Demo Build" → Run workflow
 2. Provide the Unity build repository details

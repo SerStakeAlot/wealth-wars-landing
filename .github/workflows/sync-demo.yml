@@ -7,7 +7,7 @@ on:
         description: 'Unity build repository (owner/repo)'
         required: true
         type: string
-        default: 'SerStakeAlot/wealth-wars-build'
+        default: 'SerStakeAlot/wealthwarsbuild'
       build_ref:
         description: 'Branch, tag, or commit SHA'
         required: false

@@ -29,13 +29,13 @@ Provide the following parameters:
 
 | Parameter | Description | Example |
 |-----------|-------------|---------|
-| `build_repo` | Owner and name of the Unity build repository | `SerStakeAlot/wealth-wars-build` |
+| `build_repo` | Owner and name of the Unity build repository | `SerStakeAlot/wealthwarsbuild` |
 | `build_ref` | Branch, tag, or commit SHA to sync from | `main` |
 | `build_path` | Path to the WebGL export folder (containing index.html) | `.` or `WebGL/` |
 
 **Example Configuration:**
 ```
-build_repo: SerStakeAlot/wealth-wars-build
+build_repo: SerStakeAlot/wealthwarsbuild
 build_ref: main
 build_path: WebGL/
 ```
@@ -112,14 +112,14 @@ If you prefer to sync manually:
 ```bash
 # 1. Clone both repos
 git clone https://github.com/SerStakeAlot/wealth-wars-landing
-git clone https://github.com/SerStakeAlot/wealth-wars-build
+git clone https://github.com/SerStakeAlot/wealthwarsbuild
 
 # 2. Copy Unity files
 cd wealth-wars-landing
 rm -rf public/demo/Build public/demo/TemplateData public/demo/StreamingAssets
-cp ../wealth-wars-build/WebGL/index.html public/demo/
-cp -r ../wealth-wars-build/WebGL/Build public/demo/
-cp -r ../wealth-wars-build/WebGL/TemplateData public/demo/
+cp ../wealthwarsbuild/index.html public/demo/
+cp -r ../wealthwarsbuild/Build public/demo/
+cp -r ../wealthwarsbuild/TemplateData public/demo/
 
 # 3. Fix paths in index.html (if needed)
 sed -i 's|src="/Build/|src="./Build/|g' public/demo/index.html
