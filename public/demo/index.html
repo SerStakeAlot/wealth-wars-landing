@@ -67,13 +67,12 @@
       }
 
       var buildUrl = "Build";
-  var version = "225cfd3"; // cache-busting build stamp
-      var loaderUrl = buildUrl + "/WealthWarsBuild.loader.js?v=" + version;
+      var loaderUrl = buildUrl + "/WealthWarsBuild.loader.js";
       var config = {
         arguments: [],
-        dataUrl: buildUrl + "/WealthWarsBuild.data?v=" + version,
-        frameworkUrl: buildUrl + "/WealthWarsBuild.framework.js?v=" + version,
-        codeUrl: buildUrl + "/WealthWarsBuild.wasm?v=" + version,
+        dataUrl: buildUrl + "/WealthWarsBuild.data",
+        frameworkUrl: buildUrl + "/WealthWarsBuild.framework.js",
+        codeUrl: buildUrl + "/WealthWarsBuild.wasm",
         streamingAssetsUrl: "StreamingAssets",
         companyName: "DefaultCompany",
         productName: "WealthWars",
@@ -158,5 +157,3 @@
     </script>
   </body>
 </html>
-
-<!-- version: wealthwarsbuild@225cfd3 | built-at: 2025-10-14T00:48:38Z -->
