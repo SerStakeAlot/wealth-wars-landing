@@ -67,12 +67,13 @@
       }
 
       var buildUrl = "Build";
-      var loaderUrl = buildUrl + "/WealthWarsBuild.loader.js";
+      var version = "a7cfed7"; // cache-busting build stamp
+      var loaderUrl = buildUrl + "/WealthWarsBuild.loader.js?v=" + version;
       var config = {
         arguments: [],
-        dataUrl: buildUrl + "/WealthWarsBuild.data",
-        frameworkUrl: buildUrl + "/WealthWarsBuild.framework.js",
-        codeUrl: buildUrl + "/WealthWarsBuild.wasm",
+        dataUrl: buildUrl + "/WealthWarsBuild.data?v=" + version,
+        frameworkUrl: buildUrl + "/WealthWarsBuild.framework.js?v=" + version,
+        codeUrl: buildUrl + "/WealthWarsBuild.wasm?v=" + version,
         streamingAssetsUrl: "StreamingAssets",
         companyName: "DefaultCompany",
         productName: "WealthWars",
