@@ -18,10 +18,14 @@ import "./styles/theme.css"
 import "./index.css"
 import "@solana/wallet-adapter-react-ui/styles.css";
 
-createRoot(document.getElementById('root')!).render(
-  <ErrorBoundary FallbackComponent={ErrorFallback}>
-    <SolanaWalletProvider>
-      <App />
-    </SolanaWalletProvider>
-   </ErrorBoundary>
-)
+try {
+  createRoot(document.getElementById('root')!).render(
+    <ErrorBoundary FallbackComponent={ErrorFallback}>
+      <SolanaWalletProvider>
+        <App />
+      </SolanaWalletProvider>
+      </ErrorBoundary>
+  )
+} catch (e) {
+  console.error('Fatal render error', e);
+}
