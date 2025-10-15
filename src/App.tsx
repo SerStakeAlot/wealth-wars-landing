@@ -12,11 +12,13 @@ import { ArrowSquareOut, Shield, Coins, Trophy, Users, Lightning, Info } from '@
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import ConnectWallet from './components/ConnectWallet';
 import { WalletStatus } from './components/WalletStatus';
+import { Lotto } from './components/Lotto';
+import { Treasury } from './components/Treasury';
 
 function App() {
   // Evaluate gating at render time so it reflects the value set in main.tsx
   const walletEnabled: boolean = (window as any)?.__walletEnabled ?? ((import.meta as any)?.env?.VITE_ENABLE_WALLET === 'true');
-  const [currentView, setCurrentView] = useState<'home' | 'whitepaper' | 'roadmap' | 'demo' | 'tokenomics'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'whitepaper' | 'roadmap' | 'demo' | 'tokenomics' | 'lotto' | 'treasury'>('home');
   useScrollReveal(currentView);
 
   // When navigating back to home, ensure scroll reset so reveals can trigger naturally.
@@ -71,6 +73,14 @@ function App() {
     return <Tokenomics onBack={() => setCurrentView('home')} />;
   }
 
+  if (currentView === 'lotto') {
+    return <Lotto onBack={() => setCurrentView('home')} />;
+  }
+
+  if (currentView === 'treasury') {
+    return <Treasury onBack={() => setCurrentView('home')} />;
+  }
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Hero Section */}
@@ -102,6 +112,8 @@ function App() {
               </a>
             </Button>
             <Button variant="outline" size="lg" className="text-lg px-8 py-4" onClick={() => setCurrentView('tokenomics')}>Tokenomics</Button>
+            <Button variant="outline" size="lg" className="text-lg px-8 py-4" onClick={() => setCurrentView('lotto')}>$WEALTH Lotto</Button>
+            <Button variant="outline" size="lg" className="text-lg px-8 py-4" onClick={() => setCurrentView('treasury')}>Treasury</Button>
           </div>
           
           <div className="flex flex-wrap gap-4 justify-center">
