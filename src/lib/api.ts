@@ -5,13 +5,24 @@ export type MeResponse = {
 };
 
 const BASE = (import.meta.env?.VITE_BACKEND_API_BASE || "").replace(/\/$/, "");
+export const API_BASE = BASE;
+
+function getOrCreateUserId() {
+  let id = localStorage.getItem('userId');
+  if (!id) {
+    // 12-char random ID
+    id = Math.random().toString(36).slice(2, 14);
+    localStorage.setItem('userId', id);
+  }
+  return id;
+}
 function url(path: string) {
   const base = BASE || "";
   if (base) return `${base}${path}`;
   // Fallback to same-origin for local dev via proxy or same host
   return path;
 }
-const headers = () => ({ 'Content-Type': 'application/json', 'X-User-Id': localStorage.getItem('userId') || 'demo-user' });
+const headers = () => ({ 'Content-Type': 'application/json', 'X-User-Id': getOrCreateUserId() });
 
 export async function apiMe(): Promise<MeResponse> {
   const r = await fetch(url(`/me`), { headers: headers() });
