@@ -18,13 +18,19 @@ import "./styles/theme.css"
 import "./index.css"
 import "@solana/wallet-adapter-react-ui/styles.css";
 
+const enableWallet = (import.meta.env?.VITE_ENABLE_WALLET as string | undefined) !== 'false';
+
 try {
   createRoot(document.getElementById('root')!).render(
     <ErrorBoundary FallbackComponent={ErrorFallback}>
-      <SolanaWalletProvider>
+      {enableWallet ? (
+        <SolanaWalletProvider>
+          <App />
+        </SolanaWalletProvider>
+      ) : (
         <App />
-      </SolanaWalletProvider>
-      </ErrorBoundary>
+      )}
+    </ErrorBoundary>
   )
 } catch (e) {
   console.error('Fatal render error', e);
