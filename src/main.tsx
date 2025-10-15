@@ -18,7 +18,11 @@ import "./styles/theme.css"
 import "./index.css"
 import "@solana/wallet-adapter-react-ui/styles.css";
 
-const enableWallet = (import.meta.env?.VITE_ENABLE_WALLET as string | undefined) !== 'false';
+// Enable wallet only when explicitly set to 'true' (safe default is disabled)
+const enableWallet = (import.meta.env?.VITE_ENABLE_WALLET as string | undefined) === 'true';
+// Expose for UI guard
+// @ts-ignore
+(window as any).__walletEnabled = enableWallet;
 
 try {
   createRoot(document.getElementById('root')!).render(

@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { ArrowSquareOut, Shield, Coins, Trophy, Users, Lightning, Info } from '@phosphor-icons/react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import ConnectWallet from './components/ConnectWallet';
+const walletEnabled = (window as any)?.__walletEnabled ?? false;
 
 function App() {
   const [currentView, setCurrentView] = useState<'home' | 'whitepaper' | 'roadmap' | 'demo' | 'tokenomics'>('home');
@@ -75,9 +76,11 @@ function App() {
         <div className="absolute top-8 left-8">
           <WealthWarsLogo size="sm" />
         </div>
-        <div className="absolute top-8 right-8 z-50">
-          <ConnectWallet />
-        </div>
+        {walletEnabled && (
+          <div className="absolute top-8 right-8 z-50">
+            <ConnectWallet />
+          </div>
+        )}
         
         <div className="text-center max-w-4xl mx-auto">
           <WealthWarsLogo size="hero" shimmer className="mb-10" />
@@ -96,7 +99,7 @@ function App() {
               </a>
             </Button>
             <Button variant="outline" size="lg" className="text-lg px-8 py-4" onClick={() => setCurrentView('tokenomics')}>Tokenomics</Button>
-            <ConnectWallet />
+            {walletEnabled && <ConnectWallet />}
           </div>
           
           <div className="flex flex-wrap gap-4 justify-center">
