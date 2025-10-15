@@ -5,12 +5,15 @@ import { LRUCache } from 'lru-cache';
 import { Connection, PublicKey } from '@solana/web3.js';
 import nacl from 'tweetnacl';
 import { z } from 'zod';
+import { PrismaClient } from './generated/prisma';
 // Env
 const PORT = process.env.PORT || '8787';
 const RPC_URL = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
 const CLUSTER = process.env.SOLANA_CLUSTER || 'mainnet-beta';
 // Default to provided $WEALTH mint if env not set
 const WEALTH_MINT = process.env.WEALTH_MINT || '56vQJqn9UekqgV52ff2DYvTqxK74sHNxAQVZgXeEpump';
+// Initialize Prisma
+const prisma = new PrismaClient();
 const users = new Map();
 const pendingLinks = new Map();
 // Cache for RPC results
@@ -133,6 +136,29 @@ app.get('/me', async (req, res) => {
     res.json({ id: profile.id, wallet: profile.wallet || null, wealth });
 });
 app.get('/healthz', (_, res) => res.json({ ok: true, cluster: CLUSTER }));
+// Lotto API routes
+app.get('/api/lotto/rounds', async (req, res) => {
+    try {
+        const rounds = await prisma.round.findMany({
+            include: { entries: true },
+            orderBy: { createdAt: 'desc' },
+            take: 10,
+        });
+        res.json(rounds);
+    }
+    catch (error) {
+        res.status(500).json({ error: 'Failed to fetch rounds' });
+    }
+});
+app.post('/api/lotto/join', async (req, res) => {
+    // Placeholder for join logic
+    res.json({ message: 'Join endpoint scaffolded' });
+});
+// Telegram webhook
+app.post('/api/tg/webhook', (req, res) => {
+    // Placeholder for TG webhook
+    res.json({ ok: true });
+});
 app.listen(Number(PORT), () => {
     console.log(`[backend] listening on :${PORT}, cluster=${CLUSTER}`);
 });
