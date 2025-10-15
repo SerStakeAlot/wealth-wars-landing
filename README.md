@@ -89,3 +89,40 @@ No problem! If you were just checking things out and don’t need to keep this c
 📄 License For Spark Template Resources 
 
 The Spark Template files and resources from GitHub are licensed under the terms of the MIT license, Copyright GitHub, Inc.
+
+---
+
+## Wallet connect & $WEALTH recognition
+
+This site uses Vite + React and can optionally enable Solana wallet connect. A small Express backend is included to support message-sign linking and SPL balance lookups.
+
+### Enable wallet
+
+- Set `VITE_ENABLE_WALLET=true` in the build environment
+- Optional: `VITE_SOLANA_NETWORK=mainnet|devnet|testnet`
+- Optional: `VITE_SOLANA_RPC_ENDPOINT=<https url>`
+
+### Backend (packages/backend)
+
+Env variables (server):
+
+- `SOLANA_RPC_URL=` (e.g. https://api.mainnet-beta.solana.com)
+- `SOLANA_CLUSTER=mainnet-beta|devnet|testnet`
+- `WEALTH_MINT=<SPL mint address>`
+
+Endpoints:
+
+- `POST /link/start` → returns message to sign
+- `POST /link/finish { address, signature }` → verifies signature, stores link
+- `GET /wallet/:address/wealth` → returns `uiAmount` and tier
+- `GET /me` → returns user profile with wallet + wealth
+
+Frontend env:
+
+- `VITE_BACKEND_API_BASE=https://api.wealthwars.fun` (or local server URL)
+
+Security notes:
+
+- Rate limit is applied (60 req/min default)
+- SPL balance is cached for ~30s
+- Messages must be verified byte-for-byte

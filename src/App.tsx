@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { ArrowSquareOut, Shield, Coins, Trophy, Users, Lightning, Info } from '@phosphor-icons/react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import ConnectWallet from './components/ConnectWallet';
+import { WalletStatus } from './components/WalletStatus';
 
 function App() {
   // Evaluate gating at render time so it reflects the value set in main.tsx
@@ -78,8 +79,9 @@ function App() {
           <WealthWarsLogo size="sm" />
         </div>
         {walletEnabled && (
-          <div className="absolute top-8 right-8 z-50">
+          <div className="absolute top-8 right-8 z-50 flex flex-col items-end gap-2">
             <ConnectWallet />
+            <WalletStatus />
           </div>
         )}
         
