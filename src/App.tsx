@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ArrowSquareOut, Shield, Coins, Trophy, Users, Lightning, Info } from '@phosphor-icons/react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import ConnectWallet from './components/ConnectWallet';
 
 function App() {
   const [currentView, setCurrentView] = useState<'home' | 'whitepaper' | 'roadmap' | 'demo' | 'tokenomics'>('home');
@@ -92,6 +93,7 @@ function App() {
               </a>
             </Button>
             <Button variant="outline" size="lg" className="text-lg px-8 py-4" onClick={() => setCurrentView('tokenomics')}>Tokenomics</Button>
+            <ConnectWallet />
           </div>
           
           <div className="flex flex-wrap gap-4 justify-center">
