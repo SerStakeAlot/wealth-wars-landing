@@ -27,6 +27,8 @@ dist-ssr
 .env
 **/agent-eval-report*
 packages
+!packages/backend/
+!packages/backend/**
 pids
 .file-manifest
 .devcontainer/
