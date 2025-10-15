@@ -1,18 +1,9 @@
 import { FC, PropsWithChildren, useMemo } from "react";
 import { ConnectionProvider, WalletProvider } from "@solana/wallet-adapter-react";
 import { WalletAdapterNetwork } from "@solana/wallet-adapter-base";
-import {
-  WalletModalProvider,
-} from "@solana/wallet-adapter-react-ui";
-import {
-  PhantomWalletAdapter,
-} from "@solana/wallet-adapter-phantom";
+import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
+import { PhantomWalletAdapter } from "@solana/wallet-adapter-phantom";
 import { SolflareWalletAdapter } from "@solana/wallet-adapter-solflare";
-import { BackpackWalletAdapter } from "@solana/wallet-adapter-backpack";
-import { GlowWalletAdapter } from "@solana/wallet-adapter-glow";
-import { LedgerWalletAdapter } from "@solana/wallet-adapter-ledger";
-import { SlopeWalletAdapter } from "@solana/wallet-adapter-slope";
-import { SolletWalletAdapter } from "@solana/wallet-adapter-sollet";
 
 // Default styles that can be overridden by your app
 import "@solana/wallet-adapter-react-ui/styles.css";
@@ -49,18 +40,12 @@ export const SolanaWalletProvider: FC<PropsWithChildren> = ({ children }) => {
   const network = getNetwork();
   const endpoint = getEndpoint(network);
 
-  const wallets = useMemo(
-    () => [
-      new PhantomWalletAdapter(),
-      new SolflareWalletAdapter({ network }),
-      new BackpackWalletAdapter(),
-      new GlowWalletAdapter(),
-      new LedgerWalletAdapter(),
-      new SlopeWalletAdapter(),
-      new SolletWalletAdapter({ network }),
-    ],
-    [network]
-  );
+  const wallets = useMemo(() => {
+    const list = [] as any[];
+    try { list.push(new PhantomWalletAdapter()); } catch (e) { console.error("Phantom init failed", e); }
+    try { list.push(new SolflareWalletAdapter({ network })); } catch (e) { console.error("Solflare init failed", e); }
+    return list;
+  }, [network]);
 
   return (
     <ConnectionProvider endpoint={endpoint}>
