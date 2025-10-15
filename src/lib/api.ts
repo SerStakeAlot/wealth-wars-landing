@@ -41,3 +41,9 @@ export async function apiLinkFinish(address: string, signature: string): Promise
   if (!r.ok) throw new Error(`link/finish failed: ${r.status}`);
   return r.json();
 }
+
+export async function apiWealth(address: string): Promise<{ address: string; uiAmount: number; tier: string }>{
+  const r = await fetch(url(`/wallet/${address}/wealth`), { headers: headers() });
+  if (!r.ok) throw new Error(`wealth failed: ${r.status}`);
+  return r.json();
+}

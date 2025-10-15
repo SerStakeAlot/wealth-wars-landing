@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { apiMe, apiLinkStart, apiLinkFinish, API_BASE } from '@/lib/api';
+import { apiMe, apiLinkStart, apiLinkFinish, apiWealth, API_BASE } from '@/lib/api';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { Button } from '@/components/ui/button';
 
@@ -9,6 +9,7 @@ export function WalletStatus() {
   const [me, setMe] = useState<Awaited<ReturnType<typeof apiMe>> | null>(null);
   const [health, setHealth] = useState<'online' | 'offline' | 'unknown'>('unknown');
   const { publicKey, signMessage, connected } = useWallet();
+  const [addressWealth, setAddressWealth] = useState<{ uiAmount: number; tier: string } | null>(null);
 
   const refresh = async () => {
     setLoading(true);
@@ -31,6 +32,22 @@ export function WalletStatus() {
     fetch(`${API_BASE}/healthz`).then(r => setHealth(r.ok ? 'online' : 'offline')).catch(() => setHealth('offline'));
   }, []);
 
+  useEffect(() => {
+    // If a wallet is connected, query its $WEALTH balance regardless of link status
+    (async () => {
+      if (connected && publicKey) {
+        try {
+          const w = await apiWealth(publicKey.toBase58());
+          setAddressWealth({ uiAmount: w.uiAmount, tier: w.tier });
+        } catch {
+          setAddressWealth(null);
+        }
+      } else {
+        setAddressWealth(null);
+      }
+    })();
+  }, [connected, publicKey?.toBase58()]);
+
   const linked = useMemo(() => !!me?.wallet, [me]);
 
   const doLink = async () => {
@@ -45,7 +62,11 @@ export function WalletStatus() {
     const { message } = await apiLinkStart();
     const sig = await signMessage(new TextEncoder().encode(message));
     const signatureB64 = btoa(String.fromCharCode(...sig));
-    await apiLinkFinish(publicKey.toBase58(), signatureB64);
+    try {
+      await apiLinkFinish(publicKey.toBase58(), signatureB64);
+    } catch (e: any) {
+      alert(e?.message || 'Link failed');
+    }
     await refresh();
   };
 
@@ -76,6 +97,13 @@ export function WalletStatus() {
           <span className="font-semibold">$WEALTH:</span>
           <span>{me.wealth.uiAmount.toLocaleString()}</span>
           <span className="px-2 py-0.5 rounded bg-accent/20 border border-accent/30 text-accent text-xs">{me.wealth.tier}</span>
+        </div>
+      )}
+      {!me?.wealth && addressWealth && (
+        <div className="flex items-center gap-2">
+          <span className="font-semibold">$WEALTH (connected wallet):</span>
+          <span>{addressWealth.uiAmount.toLocaleString()}</span>
+          <span className="px-2 py-0.5 rounded bg-accent/20 border border-accent/30 text-accent text-xs">{addressWealth.tier}</span>
         </div>
       )}
       {!linked && (
