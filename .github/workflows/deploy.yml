@@ -22,8 +22,8 @@ jobs:
       VITE_ENABLE_WALLET: 'true'
       # Choose Solana cluster: mainnet | devnet | testnet
       VITE_SOLANA_NETWORK: 'mainnet'
-  # Backend API base for linking + $WEALTH balance
-  VITE_BACKEND_API_BASE: ${{ secrets.BACKEND_API_BASE }}
+      # Backend API base for linking + $WEALTH balance
+      VITE_BACKEND_API_BASE: ${{ secrets.BACKEND_API_BASE }}
       # Optional: provide a dedicated RPC endpoint to avoid public rate limits
       # VITE_SOLANA_RPC_ENDPOINT: ${{ secrets.SOLANA_RPC_ENDPOINT }}
     steps:
