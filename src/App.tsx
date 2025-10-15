@@ -75,6 +75,9 @@ function App() {
         <div className="absolute top-8 left-8">
           <WealthWarsLogo size="sm" />
         </div>
+        <div className="absolute top-8 right-8 z-50">
+          <ConnectWallet />
+        </div>
         
         <div className="text-center max-w-4xl mx-auto">
           <WealthWarsLogo size="hero" shimmer className="mb-10" />
