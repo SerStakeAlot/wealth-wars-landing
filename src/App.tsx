@@ -11,9 +11,10 @@ import { Badge } from '@/components/ui/badge';
 import { ArrowSquareOut, Shield, Coins, Trophy, Users, Lightning, Info } from '@phosphor-icons/react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import ConnectWallet from './components/ConnectWallet';
-const walletEnabled = (window as any)?.__walletEnabled ?? false;
 
 function App() {
+  // Evaluate gating at render time so it reflects the value set in main.tsx
+  const walletEnabled: boolean = (window as any)?.__walletEnabled ?? ((import.meta as any)?.env?.VITE_ENABLE_WALLET === 'true');
   const [currentView, setCurrentView] = useState<'home' | 'whitepaper' | 'roadmap' | 'demo' | 'tokenomics'>('home');
   useScrollReveal(currentView);
 
