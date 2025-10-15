@@ -36,12 +36,25 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link href="/src/main.css" rel="stylesheet" />
+        <link href="/src/main.css" rel="stylesheet" />
+        <style>
+            /* Hard fallback so users never see a black screen */
+            html, body { min-height: 100%; background: #ffffff; color: #0a0a0a; }
+            #pre-init-banner { position: fixed; inset: 0; display: grid; place-items: center; font-family: Inter, system-ui, sans-serif; background: #ffffff; color: #0a0a0a; z-index: 9999; }
+            .hide { display: none !important; }
+        </style>
 </head>
 
 <body>
-    <div id="root"></div>
+        <div id="pre-init-banner">Loading Wealth Wars…</div>
+        <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+        <noscript>
+            <style>#pre-init-banner{display:grid !important}</style>
+            <div style="position:fixed;inset:0;display:grid;place-items:center;background:#fff;color:#111;font-family:Inter,system-ui,sans-serif">
+                JavaScript is required to run this app.
+            </div>
+        </noscript>
 </body>
 
 </html>

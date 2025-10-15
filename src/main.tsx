@@ -36,6 +36,8 @@ try {
       )}
     </ErrorBoundary>
   )
+  const pre = document.getElementById('pre-init-banner');
+  if (pre) pre.classList.add('hide');
 } catch (e) {
   console.error('Fatal render error', e);
 }
