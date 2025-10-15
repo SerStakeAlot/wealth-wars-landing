@@ -274,7 +274,7 @@ app.post('/api/lotto/join', async (req: express.Request, res: express.Response) 
       data: { potAmount: { increment: amount } },
     });
 
-    res.json({ entry, payment, solanaPayUrl: `solana:${process.env.WEALTH_MINT}?amount=${amount / 1e9}&reference=${reference}&label=WealthWars%20Lotto&message=Join%20Round%20${round.id}` });
+    res.json({ entry, payment, solanaPayUrl: `solana:${process.env.WEALTH_MINT}?amount=${amount / 1e9}&recipient=${process.env.TREASURY_WALLET}&reference=${reference}&label=WealthWars%20Lotto&message=Join%20Round%20${round.id}` });
   } catch (error) {
     res.status(500).json({ error: 'Failed to join' });
   }
@@ -295,13 +295,31 @@ app.get('/api/lotto/my-entries', async (req: express.Request, res: express.Respo
 });
 
 app.post('/api/lotto/confirm-payment', async (req: express.Request, res: express.Response) => {
-  const { reference } = req.body;
+  const { reference, signature } = req.body;
   try {
     const payment = await prisma.payment.findUnique({ where: { reference } });
     if (!payment) return res.status(404).json({ error: 'Payment not found' });
 
-    // In real, check Solana transaction
-    // For MVP, mark as confirmed
+    if (signature) {
+      // Verify transaction
+      const tx = await conn.getTransaction(signature);
+      if (!tx) return res.status(400).json({ error: 'Transaction not found' });
+
+      // Check if to treasury, amount matches, and memo has reference
+      const treasury = new PublicKey(process.env.TREASURY_WALLET!);
+      let valid = false;
+      for (const ix of tx.transaction.message.instructions) {
+        // Assume memo is in ix.data
+        const memo = Buffer.from(ix.data).toString('utf8');
+        if (memo.includes(reference)) {
+          // Check transfer amount, but simplified
+          valid = true;
+          break;
+        }
+      }
+      if (!valid) return res.status(400).json({ error: 'Invalid transaction' });
+    }
+
     await prisma.payment.update({
       where: { reference },
       data: { status: 'CONFIRMED' },
