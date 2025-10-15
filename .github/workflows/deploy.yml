@@ -17,6 +17,13 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      # Enable Solana wallet UI in production build
+      VITE_ENABLE_WALLET: 'true'
+      # Choose Solana cluster: mainnet | devnet | testnet
+      VITE_SOLANA_NETWORK: 'mainnet'
+      # Optional: provide a dedicated RPC endpoint to avoid public rate limits
+      # VITE_SOLANA_RPC_ENDPOINT: ${{ secrets.SOLANA_RPC_ENDPOINT }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
