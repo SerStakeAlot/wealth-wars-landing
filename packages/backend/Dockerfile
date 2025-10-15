@@ -1,14 +1,14 @@
 FROM node:20-alpine AS deps
 WORKDIR /app/packages/backend
-# Copy only backend manifests
-COPY packages/backend/package.json packages/backend/package-lock.json* ./
-RUN npm ci --omit=dev
+# Copy only backend manifest (lockfile not present in this workspace)
+COPY packages/backend/package.json ./
+RUN npm install --omit=dev
 
 FROM node:20-alpine AS build
 WORKDIR /app/packages/backend
 # Copy backend sources only
 COPY packages/backend ./
-RUN npm ci && npm run build
+RUN npm install && npm run build
 
 FROM node:20-alpine
 ENV NODE_ENV=production
