@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: wealth-wars-backend
+    env: docker
+    plan: free
+    dockerfilePath: packages/backend/Dockerfile
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: PORT
+        value: 8787
+      - key: SOLANA_CLUSTER
+        value: mainnet-beta
+      - key: SOLANA_RPC_URL
+        value: https://api.mainnet-beta.solana.com
+      - key: WEALTH_MINT
+        value: 56vQJqn9UekqgV52ff2DYvTqxK74sHNxAQVZgXeEpump

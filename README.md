@@ -126,3 +126,40 @@ Security notes:
 - Rate limit is applied (60 req/min default)
 - SPL balance is cached for ~30s
 - Messages must be verified byte-for-byte
+
+### Local development
+
+You can run both frontend and backend together:
+
+```bash
+npm install
+npm run dev:full
+```
+
+- Frontend runs on http://localhost:5000 and proxies API requests to http://localhost:8787
+- Backend default port: 8787 (configure via `PORT`)
+
+If you prefer to run separately:
+
+```bash
+# In one terminal
+npm -w packages/backend run dev
+
+# In another terminal
+npm run dev
+```
+
+### Deploying the backend
+
+The backend is a small Node service. You can containerize it using the provided Dockerfile:
+
+```bash
+docker build -t wealth-wars-backend ./packages/backend
+docker run -p 8787:8787 \
+	-e SOLANA_CLUSTER=mainnet-beta \
+	-e SOLANA_RPC_URL=https://api.mainnet-beta.solana.com \
+	-e WEALTH_MINT=56vQJqn9UekqgV52ff2DYvTqxK74sHNxAQVZgXeEpump \
+	wealth-wars-backend
+```
+
+Then set `VITE_BACKEND_API_BASE` in the Pages build env to point to your backend URL.

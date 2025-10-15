@@ -1,15 +1,25 @@
 import { useEffect, useMemo, useState } from 'react';
 import { apiMe, apiLinkStart, apiLinkFinish } from '@/lib/api';
 import { useWallet } from '@solana/wallet-adapter-react';
+import { Button } from '@/components/ui/button';
 
 export function WalletStatus() {
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [me, setMe] = useState<Awaited<ReturnType<typeof apiMe>> | null>(null);
   const { publicKey, signMessage, connected } = useWallet();
 
   const refresh = async () => {
     setLoading(true);
-    try { setMe(await apiMe()); } finally { setLoading(false); }
+    try {
+      setError(null);
+      setMe(await apiMe());
+    } catch (e: any) {
+      setError(e?.message || 'Backend unavailable');
+      setMe(null);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { refresh(); }, []);
@@ -36,6 +46,9 @@ export function WalletStatus() {
 
   return (
     <div className="text-sm flex flex-col gap-2 items-start">
+      {error && (
+        <div className="text-xs text-red-500/80">{error} — configure VITE_BACKEND_API_BASE or run backend locally.</div>
+      )}
       <div>
         Status: {linked ? <span className="text-green-500">Linked ✅</span> : <span className="text-red-500">Not linked ❌</span>}
       </div>
@@ -50,9 +63,9 @@ export function WalletStatus() {
         </div>
       )}
       {!linked && (
-        <button className="btn btn-outline" onClick={doLink}>Link Wallet on Web</button>
+        <Button variant="outline" size="sm" onClick={doLink}>Link Wallet on Web</Button>
       )}
-      <button className="btn btn-ghost text-xs opacity-70" onClick={() => alert('Lottery coming soon')}>Open Lottery (Web)</button>
+      <Button variant="ghost" size="sm" className="text-xs opacity-70" onClick={() => alert('Lottery coming soon')}>Open Lottery (Web)</Button>
     </div>
   );
 }
