@@ -44,6 +44,10 @@ export default defineConfig({
       '/healthz': {
         target: 'http://localhost:8787',
         changeOrigin: true,
+      },
+      '/api/lotto': {
+        target: 'http://localhost:8787',
+        changeOrigin: true,
       }
     }
   }

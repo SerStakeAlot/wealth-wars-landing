@@ -14,7 +14,9 @@ export function WalletStatus() {
     setLoading(true);
     try {
       setError(null);
-      setMe(await apiMe());
+      const userData = await apiMe();
+      console.log('WalletStatus: Refreshed user data:', userData, 'userId from localStorage:', localStorage.getItem('userId'));
+      setMe(userData);
     } catch (e: any) {
       setError(e?.message || 'Backend unavailable');
       setMe(null);
@@ -57,8 +59,10 @@ export function WalletStatus() {
     const signatureB64 = btoa(String.fromCharCode(...sig));
     try {
       await apiLinkFinish(publicKey.toBase58(), signatureB64);
+      console.log('WalletStatus: Link completed successfully');
     } catch (e: any) {
       alert(e?.message || 'Link failed');
+      console.error('WalletStatus: Link failed:', e);
     }
     await refresh();
   };
@@ -72,6 +76,9 @@ export function WalletStatus() {
       )}
       <div>
         Status: {linked ? <span className="text-green-500">Linked ✅</span> : <span className="text-red-500">Not linked ❌</span>}
+      </div>
+      <div className="text-xs text-muted-foreground">
+        User ID: {me?.id || 'unknown'}
       </div>
       {me?.wealth && (
         <div className="flex items-center gap-2">
