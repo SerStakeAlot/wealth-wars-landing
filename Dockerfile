@@ -5,8 +5,8 @@ COPY packages/backend/package.json ./
 COPY packages/backend/prisma ./prisma
 # Install dependencies (npm will use the lockfile from workspace if available)
 RUN npm install --omit=dev
-# Generate Prisma client (skip if DATABASE_URL not available)
-RUN npx prisma generate --schema=./prisma/schema.prisma || echo "Prisma generate skipped - DATABASE_URL not available during build"
+# Generate Prisma client for production dependencies
+RUN npx prisma generate --schema=./prisma/schema.prisma
 
 FROM node:20-alpine AS build
 WORKDIR /app
@@ -32,6 +32,8 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 # Copy prisma schema
 COPY --from=deps /app/prisma ./prisma
+# Ensure Prisma client is generated for runtime (covers cases where earlier step skipped)
+RUN npx prisma generate --schema=./prisma/schema.prisma
 # Copy package.json
 COPY packages/backend/package.json ./
 EXPOSE 8787
