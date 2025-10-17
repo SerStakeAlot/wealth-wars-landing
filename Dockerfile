@@ -10,10 +10,17 @@ RUN npx prisma generate --schema=./prisma/schema.prisma || echo "Prisma generate
 
 FROM node:20-alpine AS build
 WORKDIR /app
-# Copy all backend files
-COPY packages/backend/ ./
+# Copy package.json first for better caching
+COPY packages/backend/package.json ./
+# Copy prisma schema for Prisma generate
+COPY packages/backend/prisma ./prisma
 # Install all dependencies for building
 RUN npm install
+# Generate Prisma client again in build stage (needed for TypeScript compilation)
+RUN npx prisma generate --schema=./prisma/schema.prisma
+# Copy rest of backend files
+COPY packages/backend/ ./
+# Run TypeScript build
 RUN npm run build
 
 FROM node:20-alpine
