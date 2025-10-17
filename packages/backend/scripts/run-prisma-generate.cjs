@@ -5,9 +5,12 @@ const { spawnSync } = require('child_process');
 
 const candidatePaths = [
   resolve(__dirname, '..', 'prisma', 'schema.prisma'),
+  resolve(__dirname, '..', '..', 'prisma', 'schema.prisma'),
   resolve(process.cwd(), 'prisma', 'schema.prisma'),
   resolve(process.cwd(), '..', 'prisma', 'schema.prisma'),
-  resolve(process.cwd(), '..', '..', 'prisma', 'schema.prisma')
+  resolve(process.cwd(), '..', '..', 'prisma', 'schema.prisma'),
+  resolve(process.cwd(), 'packages', 'backend', 'prisma', 'schema.prisma'),
+  resolve(process.cwd(), '..', 'packages', 'backend', 'prisma', 'schema.prisma')
 ];
 
 const schemaPath = candidatePaths.find((p) => existsSync(p));
@@ -16,6 +19,8 @@ if (!schemaPath) {
   console.log('[prisma] schema not found in expected locations, skipping generate.');
   process.exit(0);
 }
+
+console.log(`[prisma] using schema at ${schemaPath}`);
 
 const result = spawnSync('npx', ['prisma', 'generate', `--schema=${schemaPath}`], {
   stdio: 'inherit',
