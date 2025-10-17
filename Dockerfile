@@ -2,7 +2,7 @@ FROM node:20-alpine AS deps
 WORKDIR /app
 # Copy package files from backend directory
 COPY packages/backend/package.json ./
-COPY packages/backend/prisma ./prisma
+COPY packages/backend/prisma/ ./prisma/
 # Install dependencies (npm will use the lockfile from workspace if available)
 RUN npm install --omit=dev
 # Generate Prisma client for production dependencies
@@ -13,7 +13,7 @@ WORKDIR /app
 # Copy package.json first for better caching
 COPY packages/backend/package.json ./
 # Copy prisma schema for Prisma generate
-COPY packages/backend/prisma ./prisma
+COPY packages/backend/prisma/ ./prisma/
 # Install all dependencies for building
 RUN npm install
 # Generate Prisma client again in build stage (needed for TypeScript compilation)
