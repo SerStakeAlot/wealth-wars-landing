@@ -1,7 +1,6 @@
 import { Telegraf } from 'telegraf';
 import { getOrCreateUser, getWealth } from './index.js';
 import { PrismaClient } from '@prisma/client';
-import type { Entry } from '@prisma/client';
 import { PublicKey } from '@solana/web3.js';
 import nacl from 'tweetnacl';
 
@@ -211,7 +210,7 @@ Use /join to join this match!
       }
 
       // Check if user already joined
-  const existingEntry = round.entries.find((entry: Entry) => entry.userId === user.id);
+  const existingEntry = round.entries.find((entry: { userId: string }) => entry.userId === user.id);
       if (existingEntry) {
         return ctx.reply('❌ You are already in this match.');
       }
