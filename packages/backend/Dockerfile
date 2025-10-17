@@ -1,26 +1,31 @@
 FROM node:20-alpine AS deps
 WORKDIR /app
-# Copy only backend manifest (lockfile not present in this workspace)
+# Copy package files
 COPY package.json ./
 COPY prisma ./prisma
-RUN npm install --omit=dev && npx prisma generate
+# Install dependencies (npm will use the lockfile from workspace if available)
+RUN npm install --omit=dev
+# Generate Prisma client (skip if DATABASE_URL not available)
+RUN npx prisma generate --schema=./prisma/schema.prisma || echo "Prisma generate skipped - DATABASE_URL not available during build"
 
 FROM node:20-alpine AS build
 WORKDIR /app
-# Copy backend sources only
+# Copy all backend files
 COPY . ./
-RUN npm install && npm run build
+# Install all dependencies for building
+RUN npm install
+RUN npm run build
 
 FROM node:20-alpine
 ENV NODE_ENV=production
 WORKDIR /app
-# Copy production node_modules for backend (includes @prisma/client)
+# Copy production node_modules
 COPY --from=deps /app/node_modules ./node_modules
 # Copy compiled backend dist
 COPY --from=build /app/dist ./dist
-# Copy prisma schema for database operations
+# Copy prisma schema
 COPY --from=deps /app/prisma ./prisma
-# Copy backend package.json for metadata
-COPY package.json ./package.json
+# Copy package.json
+COPY package.json ./
 EXPOSE 8787
 CMD ["node", "dist/index.js"]

@@ -37,16 +37,22 @@ async function initializeDatabase() {
       // Use Prisma's push functionality
       const { execSync } = await import('child_process');
       try {
-        execSync('npx prisma db push --accept-data-loss --schema=./prisma/schema.prisma', { stdio: 'inherit' });
+        execSync('npx prisma db push --accept-data-loss --schema=./prisma/schema.prisma', {
+          stdio: 'inherit',
+          env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL }
+        });
         console.log('[backend] ✅ Database schema pushed successfully');
       } catch (pushError: any) {
         console.error('[backend] ❌ Failed to push database schema:', pushError.message);
+        // Don't exit - let the app continue, schema might be pushed manually
       }
     } else {
       console.log('[backend] ✅ Database schema already exists');
     }
   } catch (error: any) {
     console.error('[backend] ❌ Database connection/initialization failed:', error.message);
+    // Don't exit the process - let the app continue without database for now
+    console.log('[backend] Continuing without database initialization...');
   }
 }
 
