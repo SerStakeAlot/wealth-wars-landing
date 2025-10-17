@@ -6,7 +6,7 @@ import { Connection, PublicKey } from '@solana/web3.js';
 import nacl from 'tweetnacl';
 import { z } from 'zod';
 import { PrismaClient } from '@prisma/client';
-import { createTelegramBot, handleTelegramWebhook } from './telegram-bot';
+import { createTelegramBot, handleTelegramWebhook } from './telegram-bot.js';
 
 // Env
 const PORT = process.env.PORT || '8787';

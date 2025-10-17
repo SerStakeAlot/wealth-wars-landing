@@ -1,5 +1,5 @@
 import { Telegraf } from 'telegraf';
-import { getOrCreateUser, getWealth } from './index';
+import { getOrCreateUser, getWealth } from './index.js';
 import { PrismaClient } from '@prisma/client';
 import { PublicKey } from '@solana/web3.js';
 import nacl from 'tweetnacl';
