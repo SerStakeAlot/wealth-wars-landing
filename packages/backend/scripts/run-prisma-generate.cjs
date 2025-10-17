@@ -17,6 +17,9 @@ const schemaPath = candidatePaths.find((p) => existsSync(p));
 
 if (!schemaPath) {
   console.log('[prisma] schema not found in expected locations, skipping generate.');
+  console.log(`[prisma] cwd: ${process.cwd()}`);
+  console.log(`[prisma] __dirname: ${__dirname}`);
+  console.log('[prisma] checked paths:\n' + candidatePaths.join('\n'));
   process.exit(0);
 }
 
