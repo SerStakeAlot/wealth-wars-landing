@@ -3,10 +3,17 @@ const { existsSync } = require('fs');
 const { resolve } = require('path');
 const { spawnSync } = require('child_process');
 
-const schemaPath = resolve(process.cwd(), 'prisma', 'schema.prisma');
+const candidatePaths = [
+  resolve(__dirname, '..', 'prisma', 'schema.prisma'),
+  resolve(process.cwd(), 'prisma', 'schema.prisma'),
+  resolve(process.cwd(), '..', 'prisma', 'schema.prisma'),
+  resolve(process.cwd(), '..', '..', 'prisma', 'schema.prisma')
+];
 
-if (!existsSync(schemaPath)) {
-  console.log(`[prisma] schema not found at ${schemaPath}, skipping generate.`);
+const schemaPath = candidatePaths.find((p) => existsSync(p));
+
+if (!schemaPath) {
+  console.log('[prisma] schema not found in expected locations, skipping generate.');
   process.exit(0);
 }
 
