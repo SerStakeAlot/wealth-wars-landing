@@ -94,6 +94,37 @@ app.use(limiter);
 // Serve static files from public directory
 app.use(express.static('public'));
 const conn = new Connection(RPC_URL, 'confirmed');
+// Helpers to safely surface BigInt values to JSON
+const toLamportsNumber = (value) => {
+    if (value === null || value === undefined)
+        return null;
+    return typeof value === 'bigint' ? Number(value) : value;
+};
+const serializePayment = (payment) => payment
+    ? {
+        ...payment,
+        amount: toLamportsNumber(payment.amount),
+    }
+    : payment;
+const serializeEntry = (entry) => entry
+    ? {
+        ...entry,
+        amount: toLamportsNumber(entry.amount),
+        payments: Array.isArray(entry.payments)
+            ? entry.payments.map(serializePayment)
+            : entry.payments,
+    }
+    : entry;
+const serializeRound = (round) => round
+    ? {
+        ...round,
+        potAmount: toLamportsNumber(round.potAmount),
+        entries: Array.isArray(round.entries)
+            ? round.entries.map(serializeEntry)
+            : round.entries,
+        winnerEntry: round.winnerEntry ? serializeEntry(round.winnerEntry) : null,
+    }
+    : round;
 // Utility: compute tier
 function wealthTier(amount) {
     if (amount >= 1_000_000)
@@ -233,7 +264,7 @@ app.get('/api/lotto/rounds', async (req, res) => {
             orderBy: { createdAt: 'desc' },
             take: 20,
         });
-        res.json(rounds);
+        res.json(rounds.map(serializeRound));
     }
     catch (error) {
         res.status(500).json({ error: 'Failed to fetch rounds' });
@@ -247,7 +278,7 @@ app.get('/api/lotto/current-round', async (req, res) => {
         });
         if (!round)
             return res.status(404).json({ error: 'No active round' });
-        res.json(round);
+        res.json(serializeRound(round));
     }
     catch (error) {
         res.status(500).json({ error: 'Failed to fetch current round' });
@@ -327,12 +358,13 @@ app.post('/api/lotto/join', async (req, res) => {
         if (entryCount >= maxEntries)
             return res.status(400).json({ error: 'Round is full' });
         // Create entry
+        const amountLamports = BigInt(amount);
         const entry = await prisma.entry.create({
             data: {
                 roundId: round.id,
                 userId,
                 wallet: user.wallet,
-                amount,
+                amount: amountLamports,
                 ticketCount: Math.floor(amount / minEntry), // 1 ticket per min entry
             },
         });
@@ -341,7 +373,7 @@ app.post('/api/lotto/join', async (req, res) => {
         const payment = await prisma.payment.create({
             data: {
                 reference,
-                amount,
+                amount: amountLamports,
                 wallet: user.wallet,
                 entryId: entry.id,
             },
@@ -349,9 +381,13 @@ app.post('/api/lotto/join', async (req, res) => {
         // Update round pot
         await prisma.round.update({
             where: { id: round.id },
-            data: { potAmount: { increment: amount } },
+            data: { potAmount: { increment: amountLamports } },
         });
-        res.json({ entry, payment, solanaPayUrl: `solana:${process.env.WEALTH_MINT}?amount=${amount / 1e9}&recipient=${process.env.TREASURY_WALLET}&reference=${reference}&label=WealthWars%20Lotto&message=Join%20Round%20${round.id}` });
+        res.json({
+            entry: serializeEntry(entry),
+            payment: serializePayment(payment),
+            solanaPayUrl: `solana:${process.env.WEALTH_MINT}?amount=${Number(amountLamports) / 1e9}&recipient=${process.env.TREASURY_WALLET}&reference=${reference}&label=WealthWars%20Lotto&message=Join%20Round%20${round.id}`,
+        });
     }
     catch (error) {
         res.status(500).json({ error: 'Failed to join' });
@@ -365,7 +401,10 @@ app.get('/api/lotto/my-entries', async (req, res) => {
             include: { round: true, payments: true },
             orderBy: { createdAt: 'desc' },
         });
-        res.json(entries);
+        res.json(entries.map((entry) => ({
+            ...serializeEntry(entry),
+            round: entry.round ? serializeRound(entry.round) : null,
+        })));
     }
     catch (error) {
         res.status(500).json({ error: 'Failed to fetch entries' });

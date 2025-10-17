@@ -6,6 +6,9 @@ import nacl from 'tweetnacl';
 
 const prisma = new PrismaClient();
 
+const toBigInt = (value: number | bigint) => (typeof value === 'bigint' ? value : BigInt(value));
+const bigintToLamports = (value: number | bigint) => Number(toBigInt(value)) / 1e9;
+
 // In-memory store for pending wallet links (in production, use database)
 const pendingWalletLinks = new Map<string, {
   userId: string;
@@ -135,14 +138,17 @@ Required: ${amount} $WEALTH`);
         return ctx.reply('❌ You already have a pending match. Use /cancel to cancel it first.');
       }
 
+  const amountLamports = BigInt(Math.round(amount * 1e9));
+
       // Create new round
       const round = await prisma.round.create({
         data: {
+          potAmount: amountLamports,
           entries: {
             create: {
               userId: user.id,
               wallet: user.wallet,
-              amount: Math.floor(amount * 1e9), // Convert to lamports
+              amount: amountLamports,
               ticketCount: 1,
             }
           }
@@ -204,8 +210,8 @@ Use /join to join this match!
         return ctx.reply('❌ Match is full or invalid.');
       }
 
-      const opponentEntry = round.entries[0];
-      if (opponentEntry.userId === user.id) {
+  const opponentEntry = round.entries[0];
+  if (opponentEntry.userId === user.id) {
         return ctx.reply('❌ You cannot join your own match.');
       }
 
@@ -216,7 +222,8 @@ Use /join to join this match!
       }
 
       // Check wealth balance
-      const entryAmount = opponentEntry.amount / 1e9; // Convert from lamports
+  const opponentAmountLamports = toBigInt(opponentEntry.amount);
+  const entryAmount = bigintToLamports(opponentAmountLamports); // Convert from lamports
       const wealth = await getWealth(user.wallet);
       if (wealth.uiAmount < entryAmount) {
         return ctx.reply(`❌ Insufficient balance.
@@ -240,7 +247,7 @@ Required: ${entryAmount} $WEALTH`);
       await prisma.round.update({
         where: { id: round.id },
         data: {
-          potAmount: opponentEntry.amount * 2,
+          potAmount: opponentAmountLamports * 2n,
         },
       });
 
@@ -293,8 +300,8 @@ Required: ${entryAmount} $WEALTH`);
             const loserEntry = winnerEntry === entries[0] ? entries[1] : entries[0];
 
             // Calculate distribution: 80% to winner, 20% to dev
-            const totalPotLamports = currentRound.potAmount;
-            const winnerAmount = Math.floor(totalPotLamports * 0.8); // 80% to winner
+            const totalPotLamports = toBigInt(currentRound.potAmount as unknown as number | bigint);
+            const winnerAmount = (totalPotLamports * 8n) / 10n; // 80% to winner
             const devAmount = totalPotLamports - winnerAmount; // 20% to dev
 
             await prisma.round.update({
@@ -308,10 +315,10 @@ Required: ${entryAmount} $WEALTH`);
             });
 
             // Announce winner
-            const entryAmount = winnerEntry.amount / 1e9;
-            const totalPot = (entryAmount * 2).toFixed(2);
-            const winnerPrize = (winnerAmount / 1e9).toFixed(2);
-            const devFee = (devAmount / 1e9).toFixed(2);
+            const entryAmount = bigintToLamports(winnerEntry.amount as unknown as number | bigint);
+            const totalPot = (Number(totalPotLamports) / 1e9).toFixed(2);
+            const winnerPrize = (Number(winnerAmount) / 1e9).toFixed(2);
+            const devFee = (Number(devAmount) / 1e9).toFixed(2);
 
             await ctx.telegram.sendMessage(
               ctx.chat.id,

@@ -28,26 +28,22 @@ async function initializeDatabase() {
     await prisma.$queryRaw`SELECT 1`;
     console.log('[backend] ✅ Database connection successful');
 
-    // Check if tables exist by trying to count users
-    const userCount = await prisma.user.count().catch(() => -1);
-    console.log(`[backend] User count result: ${userCount}`);
-
-    if (userCount === -1) {
-      console.log('[backend] Database tables do not exist, pushing schema...');
-      // Use Prisma's push functionality
+    const shouldPushSchema = (process.env.PRISMA_PUSH_ON_BOOT || 'true').toLowerCase() !== 'false';
+    if (shouldPushSchema) {
+      console.log('[backend] Ensuring Prisma schema is in sync (db push)...');
       const { execSync } = await import('child_process');
       try {
-        execSync('npx prisma db push --accept-data-loss --schema=./prisma/schema.prisma', {
+        execSync('npx prisma db push --accept-data-loss --skip-generate --schema=./prisma/schema.prisma', {
           stdio: 'inherit',
           env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL }
         });
-        console.log('[backend] ✅ Database schema pushed successfully');
+        console.log('[backend] ✅ Prisma schema synchronized');
       } catch (pushError: any) {
-        console.error('[backend] ❌ Failed to push database schema:', pushError.message);
-        // Don't exit - let the app continue, schema might be pushed manually
+        console.error('[backend] ❌ Prisma db push failed:', pushError.message);
+        console.error('[backend] Continuing startup; ensure schema changes are applied manually.');
       }
     } else {
-      console.log('[backend] ✅ Database schema already exists');
+      console.log('[backend] Skipping Prisma db push (PRISMA_PUSH_ON_BOOT=false)');
     }
   } catch (error: any) {
     console.error('[backend] ❌ Database connection/initialization failed:', error.message);
@@ -105,6 +101,43 @@ app.use(limiter);
 app.use(express.static('public'));
 
 const conn = new Connection(RPC_URL, 'confirmed');
+
+// Helpers to safely surface BigInt values to JSON
+const toLamportsNumber = (value: bigint | number | null | undefined) => {
+  if (value === null || value === undefined) return null;
+  return typeof value === 'bigint' ? Number(value) : value;
+};
+
+const serializePayment = (payment: any) =>
+  payment
+    ? {
+        ...payment,
+        amount: toLamportsNumber(payment.amount),
+      }
+    : payment;
+
+const serializeEntry = (entry: any) =>
+  entry
+    ? {
+        ...entry,
+        amount: toLamportsNumber(entry.amount),
+        payments: Array.isArray(entry.payments)
+          ? entry.payments.map(serializePayment)
+          : entry.payments,
+      }
+    : entry;
+
+const serializeRound = (round: any) =>
+  round
+    ? {
+        ...round,
+        potAmount: toLamportsNumber(round.potAmount),
+        entries: Array.isArray(round.entries)
+          ? round.entries.map(serializeEntry)
+          : round.entries,
+        winnerEntry: round.winnerEntry ? serializeEntry(round.winnerEntry) : null,
+      }
+    : round;
 
 // Utility: compute tier
 function wealthTier(amount: number) {
@@ -242,7 +275,7 @@ app.get('/api/lotto/rounds', async (req: express.Request, res: express.Response)
       orderBy: { createdAt: 'desc' },
       take: 20,
     });
-    res.json(rounds);
+    res.json(rounds.map(serializeRound));
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch rounds' });
   }
@@ -255,7 +288,7 @@ app.get('/api/lotto/current-round', async (req: express.Request, res: express.Re
       include: { entries: { include: { payments: true } } },
     });
     if (!round) return res.status(404).json({ error: 'No active round' });
-    res.json(round);
+    res.json(serializeRound(round));
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch current round' });
   }
@@ -340,12 +373,14 @@ app.post('/api/lotto/join', async (req: express.Request, res: express.Response) 
     if (entryCount >= maxEntries) return res.status(400).json({ error: 'Round is full' });
 
     // Create entry
+    const amountLamports = BigInt(amount);
+
     const entry = await prisma.entry.create({
       data: {
         roundId: round.id,
         userId,
         wallet: user.wallet,
-        amount,
+        amount: amountLamports,
         ticketCount: Math.floor(amount / minEntry), // 1 ticket per min entry
       },
     });
@@ -355,7 +390,7 @@ app.post('/api/lotto/join', async (req: express.Request, res: express.Response) 
     const payment = await prisma.payment.create({
       data: {
         reference,
-        amount,
+        amount: amountLamports,
         wallet: user.wallet,
         entryId: entry.id,
       },
@@ -364,10 +399,14 @@ app.post('/api/lotto/join', async (req: express.Request, res: express.Response) 
     // Update round pot
     await prisma.round.update({
       where: { id: round.id },
-      data: { potAmount: { increment: amount } },
+      data: { potAmount: { increment: amountLamports } },
     });
 
-    res.json({ entry, payment, solanaPayUrl: `solana:${process.env.WEALTH_MINT}?amount=${amount / 1e9}&recipient=${process.env.TREASURY_WALLET}&reference=${reference}&label=WealthWars%20Lotto&message=Join%20Round%20${round.id}` });
+    res.json({
+      entry: serializeEntry(entry),
+      payment: serializePayment(payment),
+      solanaPayUrl: `solana:${process.env.WEALTH_MINT}?amount=${Number(amountLamports) / 1e9}&recipient=${process.env.TREASURY_WALLET}&reference=${reference}&label=WealthWars%20Lotto&message=Join%20Round%20${round.id}`,
+    });
   } catch (error) {
     res.status(500).json({ error: 'Failed to join' });
   }
@@ -381,7 +420,10 @@ app.get('/api/lotto/my-entries', async (req: express.Request, res: express.Respo
       include: { round: true, payments: true },
       orderBy: { createdAt: 'desc' },
     });
-    res.json(entries);
+    res.json(entries.map((entry) => ({
+      ...serializeEntry(entry),
+      round: entry.round ? serializeRound(entry.round) : null,
+    })));
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch entries' });
   }

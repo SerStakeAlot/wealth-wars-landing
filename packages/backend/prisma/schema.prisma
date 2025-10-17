@@ -25,9 +25,9 @@ model User {
 }
 
 model Round {
-  id          String   @id @default(cuid())
+  id          String      @id @default(cuid())
   status      RoundStatus @default(OPEN)
-  potAmount   Int      @default(0) // in lamports
+  potAmount   BigInt      @default(0) // in lamports
   winner      String?  // wallet address
   winnerEntryId String?
   winnerEntry Entry?  @relation("WinnerEntry", fields: [winnerEntryId], references: [id])
@@ -44,7 +44,7 @@ model Entry {
   roundId     String
   userId      String   // from existing link system
   wallet      String   // Solana wallet
-  amount      Int      // lamports deposited
+  amount      BigInt   // lamports deposited
   ticketCount Int      @default(1)
   createdAt   DateTime @default(now())
 
@@ -58,7 +58,7 @@ model Entry {
 model Payment {
   id        String        @id @default(cuid())
   reference String        @unique // Solana Pay reference
-  amount    Int           // lamports
+  amount    BigInt        // lamports
   wallet    String        // sender wallet
   status    PaymentStatus @default(PENDING)
   entryId   String?       // linked entry if confirmed
