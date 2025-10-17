@@ -49,6 +49,25 @@ npm install
 npm run dev
 ```
 
+## 🤖 Telegram Bot
+
+Wealth Wars includes a Telegram bot for lotto interactions. See `packages/backend/TELEGRAM_BOT_README.md` for setup instructions.
+
+### Quick Bot Setup (Local Development)
+```bash
+# 1. Install ngrok for webhook tunneling
+npm install -g ngrok
+
+# 2. Start backend
+npm run dev:full
+
+# 3. Expose local server
+ngrok http 8787
+
+# 4. Set webhook (replace with your ngrok URL)
+node scripts/setup-telegram-webhook.js https://your-ngrok-url.ngrok.io
+```
+
 ### Production Build (manual)
 ```bash
 npm run build

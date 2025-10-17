@@ -1,0 +1,20 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "packages/backend/src/index.ts",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "packages/backend/src/index.ts"
+    }
+  ],
+  "functions": {
+    "packages/backend/src/index.ts": {
+      "runtime": "nodejs18.x"
+    }
+  }
+}

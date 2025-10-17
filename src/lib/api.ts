@@ -47,3 +47,31 @@ export async function apiWealth(address: string): Promise<{ address: string; uiA
   if (!r.ok) throw new Error(`wealth failed: ${r.status}`);
   return r.json();
 }
+
+export async function apiLottoCurrentRound(): Promise<any> {
+  const r = await fetch(url(`/api/lotto/current-round`), { headers: headers() });
+  if (!r.ok) throw new Error(`current-round failed: ${r.status}`);
+  return r.json();
+}
+
+export async function apiLottoMyEntries(): Promise<any[]> {
+  const r = await fetch(url(`/api/lotto/my-entries`), { headers: headers() });
+  if (!r.ok) throw new Error(`my-entries failed: ${r.status}`);
+  return r.json();
+}
+
+export async function apiLottoJoin(amount: number): Promise<any> {
+  const r = await fetch(url(`/api/lotto/join`), { 
+    method: 'POST', 
+    headers: headers(), 
+    body: JSON.stringify({ amount }) 
+  });
+  if (!r.ok) throw new Error(`join failed: ${r.status}`);
+  return r.json();
+}
+
+export async function apiLottoRounds(): Promise<any[]> {
+  const r = await fetch(url(`/api/lotto/rounds`), { headers: headers() });
+  if (!r.ok) throw new Error(`rounds failed: ${r.status}`);
+  return r.json();
+}
