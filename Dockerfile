@@ -1,0 +1,40 @@
+FROM node:20-alpine AS deps
+WORKDIR /app
+# Copy package files from backend directory
+COPY packages/backend/package.json ./
+COPY packages/backend/prisma/ ./prisma/
+# Install dependencies (npm will use the lockfile from workspace if available)
+RUN npm install --omit=dev
+# Generate Prisma client for production dependencies
+RUN npx prisma generate --schema=./prisma/schema.prisma
+
+FROM node:20-alpine AS build
+WORKDIR /app
+# Copy package.json first for better caching
+COPY packages/backend/package.json ./
+# Copy prisma schema for Prisma generate
+COPY packages/backend/prisma/ ./prisma/
+# Install all dependencies for building
+RUN npm install
+# Generate Prisma client again in build stage (needed for TypeScript compilation)
+RUN npx prisma generate --schema=./prisma/schema.prisma
+# Copy rest of backend files
+COPY packages/backend/ ./
+# Run TypeScript build
+RUN npm run build
+
+FROM node:20-alpine
+ENV NODE_ENV=production
+WORKDIR /app
+# Copy production node_modules
+COPY --from=deps /app/node_modules ./node_modules
+# Copy compiled backend dist
+COPY --from=build /app/dist ./dist
+# Copy prisma schema
+COPY --from=deps /app/prisma ./prisma
+# Ensure Prisma client is generated for runtime (covers cases where earlier step skipped)
+RUN npx prisma generate --schema=./prisma/schema.prisma
+# Copy package.json
+COPY packages/backend/package.json ./
+EXPOSE 8787
+CMD ["node", "dist/index.js"]
