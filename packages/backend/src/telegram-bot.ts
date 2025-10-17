@@ -441,8 +441,9 @@ Required: ${entryAmount} $WEALTH`);
 
 **Option 2 - Browser:**
 1. 🌐 **Click this link:** ${webSignUrl}
-2. ✅ **Sign the message** in browser extension
-3. 📤 **Signature sent automatically!**
+2. ✅ **Sign the message** with your browser wallet (Phantom supported)
+3. � **Copy the signature** shown on the page
+4. 📤 **Paste the signature here** to finish linking
 
 **Option 3 - Manual (if auto-send fails):**
 1. 📱 Open **Phantom app** → **Settings** → **Sign Message**

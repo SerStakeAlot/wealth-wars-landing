@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wealth Wars Wallet Verification</title>
+  <style>
+    :root {
+      color-scheme: dark light;
+    }
+    body {
+      font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 0;
+      padding: 24px;
+      background: #05050a;
+      color: #f1f5f9;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+    .card {
+      width: min(540px, 100%);
+      border-radius: 16px;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      padding: 32px;
+      background: radial-gradient(circle at top, rgba(46, 118, 255, 0.12), rgba(15, 23, 42, 0.9));
+      box-shadow: 0 20px 45px rgba(15, 23, 42, 0.4);
+    }
+    h1 {
+      font-size: 24px;
+      margin-bottom: 12px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #e2e8f0;
+    }
+    p {
+      line-height: 1.6;
+      color: rgba(226, 232, 240, 0.9);
+    }
+    code, pre {
+      font-family: "Fira Code", "Source Code Pro", Menlo, Consolas, monospace;
+    }
+    pre {
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      border-radius: 12px;
+      padding: 16px;
+      overflow-x: auto;
+      font-size: 14px;
+    }
+    button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 18px;
+      border-radius: 999px;
+      border: none;
+      background: linear-gradient(135deg, #0ea5e9, #a855f7);
+      color: #0f172a;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 24px rgba(14, 165, 233, 0.35);
+    }
+    button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      box-shadow: none;
+      transform: none;
+    }
+    .section {
+      margin-top: 24px;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      padding: 6px 12px;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      background: rgba(15, 23, 42, 0.65);
+      color: rgba(226, 232, 240, 0.75);
+    }
+    .alert {
+      margin-top: 16px;
+      padding: 12px 16px;
+      border-radius: 12px;
+      border: 1px solid rgba(248, 250, 252, 0.2);
+      background: rgba(15, 23, 42, 0.7);
+      font-size: 14px;
+    }
+    .success {
+      border-color: rgba(134, 239, 172, 0.35);
+      color: #bbf7d0;
+    }
+    .error {
+      border-color: rgba(248, 113, 113, 0.45);
+      color: #fecaca;
+    }
+    .footer {
+      margin-top: 32px;
+      font-size: 13px;
+      color: rgba(148, 163, 184, 0.6);
+      text-align: center;
+    }
+    a {
+      color: #38bdf8;
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>Wealth Wars Wallet Verification</h1>
+    <p id="intro">Sign the message below with your Solana wallet to prove ownership. After signing, paste the base64 signature back into the Telegram chat.</p>
+
+    <div class="section">
+      <div class="badge">Message to Sign</div>
+      <pre id="messageBox">Loading message...</pre>
+      <button id="copyMessage" type="button">Copy Message</button>
+      <div id="messageAlert" class="alert" hidden></div>
+    </div>
+
+    <div class="section">
+      <div class="badge">Step 1</div>
+      <p>Connect your wallet and sign using the button below. Phantom will prompt you to approve message signing.</p>
+      <button id="signButton" type="button">Sign with Phantom</button>
+      <div id="phantomAlert" class="alert" hidden></div>
+    </div>
+
+    <div class="section">
+      <div class="badge">Step 2</div>
+      <p>After signing, copy the base64 signature and send it back to the Wealth Wars Telegram bot.</p>
+      <pre id="signatureBox">Signature will appear here after signing.</pre>
+      <button id="copySignature" type="button" disabled>Copy Signature</button>
+      <div id="signatureAlert" class="alert" hidden></div>
+    </div>
+
+    <div class="footer">
+      <p>Need help? Contact the team on <a href="https://t.me/+yEGQC4AMep1lZGZh" target="_blank" rel="noopener">Telegram</a>.</p>
+    </div>
+  </main>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const rawMessage = params.get("message");
+    const decodedMessage = rawMessage ? decodeURIComponent(rawMessage) : "No message provided. Return to the bot and start the linking process again.";
+
+    const messageBox = document.getElementById("messageBox");
+    const signatureBox = document.getElementById("signatureBox");
+    const signButton = document.getElementById("signButton");
+    const copyMessageBtn = document.getElementById("copyMessage");
+    const copySignatureBtn = document.getElementById("copySignature");
+    const messageAlert = document.getElementById("messageAlert");
+    const phantomAlert = document.getElementById("phantomAlert");
+    const signatureAlert = document.getElementById("signatureAlert");
+
+    messageBox.textContent = decodedMessage;
+
+    function showAlert(node, text, type = "info") {
+      node.textContent = text;
+      node.className = `alert ${type === "error" ? "error" : type === "success" ? "success" : ""}`;
+      node.hidden = false;
+      clearTimeout(node._timeoutId);
+      node._timeoutId = setTimeout(() => {
+        node.hidden = true;
+      }, 4500);
+    }
+
+    copyMessageBtn.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(decodedMessage);
+        showAlert(messageAlert, "Message copied to clipboard.", "success");
+      } catch (error) {
+        showAlert(messageAlert, "Unable to copy message. Please copy manually.", "error");
+      }
+    });
+
+    copySignatureBtn.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(signatureBox.textContent.trim());
+        showAlert(signatureAlert, "Signature copied. Paste it in Telegram.", "success");
+      } catch (error) {
+        showAlert(signatureAlert, "Unable to copy signature. Copy manually from the box above.", "error");
+      }
+    });
+
+    function toBase64(uint8Array) {
+      let binary = "";
+      const len = uint8Array.length;
+      for (let i = 0; i < len; i += 1) {
+        binary += String.fromCharCode(uint8Array[i]);
+      }
+      return btoa(binary);
+    }
+
+    signButton.addEventListener("click", async () => {
+      if (!window.solana || !window.solana.isPhantom) {
+        showAlert(phantomAlert, "Phantom wallet not detected. Use the Phantom browser extension or mobile in-app browser.", "error");
+        return;
+      }
+
+      try {
+        signButton.disabled = true;
+        signButton.textContent = "Awaiting Phantom...";
+
+        const encoder = new TextEncoder();
+        const messageBytes = encoder.encode(decodedMessage);
+
+        await window.solana.connect({ onlyIfTrusted: false });
+        const { signature } = await window.solana.signMessage(messageBytes, "utf8");
+        const base64Signature = toBase64(signature);
+
+        signatureBox.textContent = base64Signature;
+        copySignatureBtn.disabled = false;
+        showAlert(signatureAlert, "Signature ready. Copy and send it to the bot.", "success");
+      } catch (error) {
+        console.error("Signing error", error);
+        showAlert(phantomAlert, error?.message || "Signing was cancelled or failed.", "error");
+      } finally {
+        signButton.disabled = false;
+        signButton.textContent = "Sign with Phantom";
+      }
+    });
+  </script>
+</body>
+</html>
