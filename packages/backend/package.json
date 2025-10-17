@@ -5,10 +5,10 @@
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
-    "prebuild": "prisma generate",
+  "prebuild": "node ./scripts/run-prisma-generate.cjs",
     "build": "tsc -p tsconfig.json",
     "dev": "tsx watch src/index.ts",
-    "prestart": "prisma generate",
+    "prestart": "node ./scripts/run-prisma-generate.cjs",
     "start": "node dist/index.js"
   },
   "dependencies": {
