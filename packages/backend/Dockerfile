@@ -1,23 +1,26 @@
 FROM node:20-alpine AS deps
-WORKDIR /app/packages/backend
+WORKDIR /app
 # Copy only backend manifest (lockfile not present in this workspace)
-COPY packages/backend/package.json ./
-RUN npm install --omit=dev
+COPY package.json ./
+COPY prisma ./prisma
+RUN npm install --omit=dev && npx prisma generate
 
 FROM node:20-alpine AS build
-WORKDIR /app/packages/backend
+WORKDIR /app
 # Copy backend sources only
-COPY packages/backend ./
+COPY . ./
 RUN npm install && npm run build
 
 FROM node:20-alpine
 ENV NODE_ENV=production
 WORKDIR /app
-# Copy production node_modules for backend
-COPY --from=deps /app/packages/backend/node_modules ./node_modules
+# Copy production node_modules for backend (includes @prisma/client)
+COPY --from=deps /app/node_modules ./node_modules
 # Copy compiled backend dist
-COPY --from=build /app/packages/backend/dist ./dist
+COPY --from=build /app/dist ./dist
+# Copy prisma schema for database operations
+COPY --from=deps /app/prisma ./prisma
 # Copy backend package.json for metadata
-COPY packages/backend/package.json ./package.json
+COPY package.json ./package.json
 EXPOSE 8787
 CMD ["node", "dist/index.js"]

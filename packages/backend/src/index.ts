@@ -5,8 +5,8 @@ import { LRUCache } from 'lru-cache';
 import { Connection, PublicKey } from '@solana/web3.js';
 import nacl from 'tweetnacl';
 import { z } from 'zod';
-import { PrismaClient } from './generated/prisma';
-import { createTelegramBot, handleTelegramWebhook } from './telegram-bot';
+import { PrismaClient } from '@prisma/client';
+import { createTelegramBot, handleTelegramWebhook } from './telegram-bot.js';
 
 // Env
 const PORT = process.env.PORT || '8787';
@@ -17,6 +17,38 @@ const WEALTH_MINT = process.env.WEALTH_MINT || '56vQJqn9UekqgV52ff2DYvTqxK74sHNx
 
 // Initialize Prisma
 const prisma = new PrismaClient();
+console.log('[backend] DATABASE_URL:', process.env.DATABASE_URL ? 'Set' : 'Not set');
+console.log('[backend] Database connection attempt...');
+
+// Push database schema on startup (for production deployment)
+async function initializeDatabase() {
+  try {
+    console.log('[backend] Checking database schema...');
+    // Try to run a simple query to test connection
+    await prisma.$queryRaw`SELECT 1`;
+    console.log('[backend] ✅ Database connection successful');
+
+    // Check if tables exist by trying to count users
+    const userCount = await prisma.user.count().catch(() => -1);
+    console.log(`[backend] User count result: ${userCount}`);
+
+    if (userCount === -1) {
+      console.log('[backend] Database tables do not exist, pushing schema...');
+      // Use Prisma's push functionality
+      const { execSync } = await import('child_process');
+      try {
+        execSync('npx prisma db push --accept-data-loss --schema=./prisma/schema.prisma', { stdio: 'inherit' });
+        console.log('[backend] ✅ Database schema pushed successfully');
+      } catch (pushError: any) {
+        console.error('[backend] ❌ Failed to push database schema:', pushError.message);
+      }
+    } else {
+      console.log('[backend] ✅ Database schema already exists');
+    }
+  } catch (error: any) {
+    console.error('[backend] ❌ Database connection/initialization failed:', error.message);
+  }
+}
 
 // Initialize Telegram bot if token is provided
 let telegramBot: any = null;
@@ -404,10 +436,20 @@ process.on('uncaughtException', (err) => {
   process.exit(1);
 });
 
-app.listen(Number(PORT), '0.0.0.0', () => {
-  console.log(`[backend] listening on :${PORT}, cluster=${CLUSTER}`);
-  console.log(`[backend] Server started successfully`);
-}).on('error', (err) => {
-  console.error('[backend] Server failed to start:', err);
+// Start server
+async function startServer() {
+  await initializeDatabase();
+
+  app.listen(Number(PORT), '0.0.0.0', () => {
+    console.log(`[backend] listening on :${PORT}, cluster=${CLUSTER}`);
+    console.log(`[backend] Server started successfully`);
+  }).on('error', (err) => {
+    console.error('[backend] Server failed to start:', err);
+    process.exit(1);
+  });
+}
+
+startServer().catch((err) => {
+  console.error('[backend] Failed to start server:', err);
   process.exit(1);
 });
