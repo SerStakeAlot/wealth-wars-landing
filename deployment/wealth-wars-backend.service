@@ -1,0 +1,40 @@
+[Unit]
+Description=Wealth Wars Backend Service
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=your-user
+Group=your-group
+WorkingDirectory=/path/to/wealth-wars-landing/packages/backend
+
+# Environment file with secrets
+EnvironmentFile=/path/to/wealth-wars-landing/packages/backend/.env
+
+# Node.js executable
+ExecStart=/usr/bin/node --loader ts-node/esm /path/to/wealth-wars-landing/packages/backend/src/start-services.ts
+
+# Restart policy
+Restart=always
+RestartSec=10
+StartLimitInterval=400
+StartLimitBurst=5
+
+# Logging
+StandardOutput=append:/var/log/wealth-wars/backend.log
+StandardError=append:/var/log/wealth-wars/backend-error.log
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/path/to/wealth-wars-landing/packages/backend
+
+# Resource limits
+LimitNOFILE=65536
+MemoryLimit=2G
+
+[Install]
+WantedBy=multi-user.target

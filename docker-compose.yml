@@ -1,0 +1,102 @@
+# Docker Compose for Wealth Wars Backend Services
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: wealth-wars-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: wealth_wars
+      POSTGRES_USER: ${DB_USER:-wealth_wars}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./deployment/init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-wealth_wars}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Solana Test Validator (for local development)
+  solana-validator:
+    image: solanalabs/solana:v1.18.26
+    container_name: wealth-wars-validator
+    restart: unless-stopped
+    command: >
+      bash -c "
+        solana-test-validator
+        --rpc-port 8899
+        --limit-ledger-size 10000000
+        --reset
+      "
+    ports:
+      - "8899:8899"
+      - "8900:8900"
+    profiles:
+      - local-dev
+    healthcheck:
+      test: ["CMD-SHELL", "solana cluster-version || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Backend Service
+  backend:
+    build:
+      context: .
+      dockerfile: deployment/Dockerfile.backend
+    container_name: wealth-wars-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      DATABASE_URL: postgresql://${DB_USER:-wealth_wars}:${DB_PASSWORD}@postgres:5432/wealth_wars
+      SOLANA_RPC_URL: ${SOLANA_RPC_URL:-https://api.devnet.solana.com}
+      AUTHORITY_SECRET_KEY: ${AUTHORITY_SECRET_KEY}
+      LOTTO_PROGRAM_ID: ${LOTTO_PROGRAM_ID}
+    ports:
+      - "${BACKEND_PORT:-3000}:3000"
+    volumes:
+      - ./packages/backend/logs:/app/packages/backend/logs
+      - ./target/idl:/app/target/idl:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Redis (for caching and session management)
+  redis:
+    image: redis:7-alpine
+    container_name: wealth-wars-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    profiles:
+      - with-cache
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  default:
+    name: wealth-wars-network
