@@ -15,7 +15,7 @@ import { ServiceManager } from './services/service-manager.js';
 import { UserIdentityService } from './services/user-identity.js';
 import { createLottoRoutes } from './api/lotto-routes.js';
 import { errorHandler } from './api/middleware.js';
-import { createTelegramBot } from './telegram-bot-lotto.js';
+import { createTelegramBot } from './telegram-bot-simple.js';
 
 // =============================================================================
 // Environment Configuration
