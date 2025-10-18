@@ -75,3 +75,73 @@ export async function apiLottoRounds(): Promise<any[]> {
   if (!r.ok) throw new Error(`rounds failed: ${r.status}`);
   return r.json();
 }
+
+export async function apiLottoJoinWeb(roundId: string, wallet: string, username: string): Promise<any> {
+  const r = await fetch(url(`/api/lotto/rounds/${roundId}/join/web`), {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify({ wallet, username })
+  });
+  if (!r.ok) throw new Error(`join-web failed: ${r.status}`);
+  return r.json();
+}
+
+export async function apiLottoClaimPayout(entryId: string, wallet: string): Promise<any> {
+  const r = await fetch(url(`/api/lotto/entries/${entryId}/claim`), {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify({ wallet })
+  });
+  if (!r.ok) throw new Error(`claim failed: ${r.status}`);
+  return r.json();
+}
+
+export async function apiLottoHealth(): Promise<any> {
+  const r = await fetch(url(`/api/lotto/health`), { headers: headers() });
+  if (!r.ok) throw new Error(`health failed: ${r.status}`);
+  return r.json();
+}
+
+// Admin endpoints (require ADMIN_API_TOKEN in Authorization header)
+export async function apiLottoCreateRound(
+  ticketPriceLamports: number,
+  maxEntries: number,
+  durationSlots: number,
+  retainedBps: number,
+  adminToken: string
+): Promise<any> {
+  const r = await fetch(url(`/api/lotto/rounds`), {
+    method: 'POST',
+    headers: {
+      ...headers(),
+      'Authorization': `Bearer ${adminToken}`
+    },
+    body: JSON.stringify({ ticketPriceLamports, maxEntries, durationSlots, retainedBps })
+  });
+  if (!r.ok) throw new Error(`create-round failed: ${r.status}`);
+  return r.json();
+}
+
+export async function apiLottoCloseRound(roundId: string, adminToken: string): Promise<any> {
+  const r = await fetch(url(`/api/lotto/rounds/${roundId}/close`), {
+    method: 'POST',
+    headers: {
+      ...headers(),
+      'Authorization': `Bearer ${adminToken}`
+    }
+  });
+  if (!r.ok) throw new Error(`close-round failed: ${r.status}`);
+  return r.json();
+}
+
+export async function apiLottoSettleRound(roundId: string, adminToken: string): Promise<any> {
+  const r = await fetch(url(`/api/lotto/rounds/${roundId}/settle`), {
+    method: 'POST',
+    headers: {
+      ...headers(),
+      'Authorization': `Bearer ${adminToken}`
+    }
+  });
+  if (!r.ok) throw new Error(`settle-round failed: ${r.status}`);
+  return r.json();
+}
