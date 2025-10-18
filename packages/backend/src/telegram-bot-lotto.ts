@@ -52,15 +52,14 @@ export function createTelegramBot(token: string, services?: BotServices) {
     await ctx.reply(`🎰 Welcome to Wealth Wars Lotto Bot!
 
 **How it works:**
-• Admin creates lotto rounds
-• Players join with $WEALTH tokens
+• Start a round with /bet <amount>
+• Others join with /join
 • 80% goes to one random winner
 • 20% split among losers (claimable)
-• All on-chain and verifiable
 
 **Commands:**
-/bet - View current lotto round
-/join - Join the active round
+/bet <amount> - Start a round (e.g., /bet 100)
+/join - Join the current round
 /balance - Check your $WEALTH balance
 /help - Show this help
 
@@ -71,16 +70,16 @@ Send your Solana wallet address, then sign the verification message.`);
   bot.help(async (ctx) => {
     await ctx.reply(`🎰 Wealth Wars Lotto Bot Commands:
 
-/bet - View current lotto round details
-/join - Join the active lotto round
+/bet <amount> - Start a new round (e.g., /bet 100)
+/join - Join the current round
 /balance - Check your $WEALTH balance
 /help - Show this help
 
 **How It Works:**
-1. Admin creates a lotto round
-2. Players join with /join (costs ticket price)
-3. When round closes: 80% → random winner, 20% → losers split
-4. Winners and losers claim their share
+1. Someone starts a round with /bet
+2. Others join with /join
+3. When settled: 80% → winner, 20% → losers
+4. Claim your winnings
 
 **Need Help?** Make sure your wallet is linked first!`);
   });
