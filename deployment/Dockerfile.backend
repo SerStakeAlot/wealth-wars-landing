@@ -1,0 +1,60 @@
+# Dockerfile for Backend Service
+FROM node:20-alpine AS builder
+
+# Install build dependencies
+RUN apk add --no-cache python3 make g++
+
+WORKDIR /app
+
+# Copy package files
+COPY package.json package-lock.json ./
+COPY packages/backend/package.json ./packages/backend/
+
+# Install dependencies
+RUN npm ci
+
+# Copy source code
+COPY . .
+
+# Build TypeScript
+RUN npm run build -w packages/backend
+
+# Production stage
+FROM node:20-alpine
+
+# Install runtime dependencies
+RUN apk add --no-cache curl tini
+
+# Create app user
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001
+
+WORKDIR /app
+
+# Copy package files
+COPY --from=builder --chown=nodejs:nodejs /app/package*.json ./
+COPY --from=builder --chown=nodejs:nodejs /app/packages/backend/package.json ./packages/backend/
+
+# Install production dependencies only
+RUN npm ci --only=production
+
+# Copy built application
+COPY --from=builder --chown=nodejs:nodejs /app/packages/backend/dist ./packages/backend/dist
+COPY --from=builder --chown=nodejs:nodejs /app/packages/backend/prisma ./packages/backend/prisma
+
+# Generate Prisma client
+RUN cd packages/backend && npx prisma generate
+
+# Create logs directory
+RUN mkdir -p /app/packages/backend/logs && \
+    chown -R nodejs:nodejs /app/packages/backend/logs
+
+USER nodejs
+
+EXPOSE 3000
+
+# Use tini for proper signal handling
+ENTRYPOINT ["/sbin/tini", "--"]
+
+# Start the service
+CMD ["node", "packages/backend/dist/start-services.js"]

@@ -1,156 +1,70 @@
+/**
+ * Enhanced Backend Server with Lotto Services
+ * 
+ * This replaces the main index.ts with integrated lotto functionality.
+ */
+
 import express from 'express';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
+import { Connection, PublicKey, Keypair } from '@solana/web3.js';
+import bs58 from 'bs58';
 import { LRUCache } from 'lru-cache';
-import { Connection, PublicKey } from '@solana/web3.js';
-import nacl from 'tweetnacl';
-import { z } from 'zod';
 import { PrismaClient } from '@prisma/client';
-import { createTelegramBot, handleTelegramWebhook } from './telegram-bot.js';
+import { ServiceManager } from './services/service-manager.js';
+import { UserIdentityService } from './services/user-identity.js';
+import { createLottoRoutes } from './api/lotto-routes.js';
+import { errorHandler } from './api/middleware.js';
+import { createTelegramBot } from './telegram-bot-lotto.js';
 
-// Env
-const PORT = process.env.PORT || '8787';
-const RPC_URL = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
-const CLUSTER = process.env.SOLANA_CLUSTER || 'mainnet-beta';
-// Default to provided $WEALTH mint if env not set
+// =============================================================================
+// Environment Configuration
+// =============================================================================
+
+const PORT = parseInt(process.env.PORT || '3000', 10);
+const NODE_ENV = process.env.NODE_ENV || 'development';
+const RPC_URL = process.env.SOLANA_RPC_URL || 'https://api.devnet.solana.com';
 const WEALTH_MINT = process.env.WEALTH_MINT || '56vQJqn9UekqgV52ff2DYvTqxK74sHNxAQVZgXeEpump';
 
-// Initialize Prisma
-const prisma = new PrismaClient();
-console.log('[backend] DATABASE_URL:', process.env.DATABASE_URL ? 'Set' : 'Not set');
-console.log('[backend] Database connection attempt...');
+// =============================================================================
+// Initialize Database & Cache
+// =============================================================================
 
-// Push database schema on startup (for production deployment)
-async function initializeDatabase() {
-  try {
-    console.log('[backend] Checking database schema...');
-    // Try to run a simple query to test connection
-    await prisma.$queryRaw`SELECT 1`;
-    console.log('[backend] ✅ Database connection successful');
+const prisma = new PrismaClient({
+  log: NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
+});
 
-    const shouldPushSchema = (process.env.PRISMA_PUSH_ON_BOOT || 'true').toLowerCase() !== 'false';
-    if (shouldPushSchema) {
-      console.log('[backend] Ensuring Prisma schema is in sync (db push)...');
-      const { execSync } = await import('child_process');
-      try {
-        execSync('npx prisma db push --accept-data-loss --skip-generate --schema=./prisma/schema.prisma', {
-          stdio: 'inherit',
-          env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL }
-        });
-        console.log('[backend] ✅ Prisma schema synchronized');
-      } catch (pushError: any) {
-        console.error('[backend] ❌ Prisma db push failed:', pushError.message);
-        console.error('[backend] Continuing startup; ensure schema changes are applied manually.');
-      }
-    } else {
-      console.log('[backend] Skipping Prisma db push (PRISMA_PUSH_ON_BOOT=false)');
-    }
-  } catch (error: any) {
-    console.error('[backend] ❌ Database connection/initialization failed:', error.message);
-    // Don't exit the process - let the app continue without database for now
-    console.log('[backend] Continuing without database initialization...');
-  }
-}
+const cache = new LRUCache<string, any>({ max: 1000, ttl: 30_000 });
+const conn = new Connection(RPC_URL, 'confirmed');
 
-// Initialize Telegram bot if token is provided
-let telegramBot: any = null;
-if (process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_BOT_TOKEN !== 'your_bot_token_here') {
-  telegramBot = createTelegramBot(process.env.TELEGRAM_BOT_TOKEN);
-  console.log('[backend] Telegram bot initialized');
+// =============================================================================
+// Legacy Helper Functions (for Telegram Bot compatibility)
+// =============================================================================
 
-  // Launch bot in polling mode for development (fallback when webhooks are unstable)
-  console.log('[backend] Attempting to launch bot in polling mode...');
-  try {
-    telegramBot.launch();
-    console.log('[backend] ✅ Telegram bot launched in polling mode successfully');
-  } catch (err: any) {
-    console.error('[backend] ❌ Failed to launch bot in polling mode:', err.message);
-  }
-}
-
-// Simple in-memory stores (replace with persistent DB in production)
-type UserProfile = { id: string; email?: string; wallet?: string; wealth?: { uiAmount: number; tier: string } };
-const users = new Map<string, UserProfile>();
-const pendingLinks = new Map<string, { userId: string; message: string; code: string; wallet?: string }>();
-
-// Database helper functions
+/**
+ * Get or create a user by ID (for telegram bot compatibility)
+ */
 export async function getOrCreateUser(userId: string): Promise<{ id: string; wallet: string | null }> {
   let user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) {
-    user = await prisma.user.create({ data: { id: userId } });
+    // Create with a username from the userId
+    user = await prisma.user.create({ 
+      data: { 
+        id: userId,
+        username: `user_${userId.slice(0, 8)}` // Simple default username
+      } 
+    });
   }
   return { id: user.id, wallet: user.wallet };
 }
 
-async function updateUserWallet(userId: string, wallet: string): Promise<void> {
-  await prisma.user.update({
-    where: { id: userId },
-    data: { wallet, updatedAt: new Date() }
-  });
-}
-const cache = new LRUCache<string, any>({ max: 1000, ttl: 30_000 });
-
-const app = express();
-app.set('trust proxy', 1);
-app.use(cors());
-app.use(express.json());
-const limiter = rateLimit({ windowMs: 60_000, max: 60 });
-app.use(limiter);
-
-// Serve static files from public directory
-app.use(express.static('public'));
-
-const conn = new Connection(RPC_URL, 'confirmed');
-
-// Helpers to safely surface BigInt values to JSON
-const toLamportsNumber = (value: bigint | number | null | undefined) => {
-  if (value === null || value === undefined) return null;
-  return typeof value === 'bigint' ? Number(value) : value;
-};
-
-const serializePayment = (payment: any) =>
-  payment
-    ? {
-        ...payment,
-        amount: toLamportsNumber(payment.amount),
-      }
-    : payment;
-
-const serializeEntry = (entry: any) =>
-  entry
-    ? {
-        ...entry,
-        amount: toLamportsNumber(entry.amount),
-        payments: Array.isArray(entry.payments)
-          ? entry.payments.map(serializePayment)
-          : entry.payments,
-      }
-    : entry;
-
-const serializeRound = (round: any) =>
-  round
-    ? {
-        ...round,
-        potAmount: toLamportsNumber(round.potAmount),
-        entries: Array.isArray(round.entries)
-          ? round.entries.map(serializeEntry)
-          : round.entries,
-        winnerEntry: round.winnerEntry ? serializeEntry(round.winnerEntry) : null,
-      }
-    : round;
-
-// Utility: compute tier
-function wealthTier(amount: number) {
-  if (amount >= 1_000_000) return 'Tycoon';
-  if (amount >= 250_000) return 'Magnate';
-  if (amount >= 50_000) return 'Industrialist';
-  return 'Citizen';
-}
-
-// Utility: get wealth for wallet
+/**
+ * Get wealth balance for a wallet address
+ */
 export async function getWealth(wallet: string): Promise<{ uiAmount: number; tier: string }> {
   const cacheKey = `wealth:${wallet}`;
   let wealth = cache.get(cacheKey) as { uiAmount: number; tier: string } | null;
+  
   if (!wealth) {
     try {
       console.log(`[backend] Checking wealth for wallet: ${wallet}, mint: ${WEALTH_MINT}`);
@@ -179,325 +93,298 @@ export async function getWealth(wallet: string): Promise<{ uiAmount: number; tie
   return wealth;
 }
 
-// Demo auth: derive user from header (replace with real auth)
-function getUserId(req: express.Request): string {
-  const id = (req.headers['x-user-id'] as string) || 'demo-user';
-  return id;
+/**
+ * Compute wealth tier from amount
+ */
+function wealthTier(amount: number): string {
+  if (amount >= 1_000_000) return 'Tycoon';
+  if (amount >= 250_000) return 'Magnate';
+  if (amount >= 50_000) return 'Industrialist';
+  return 'Citizen';
 }
 
-// Start link
-app.post('/link/start', async (req: express.Request, res: express.Response) => {
-  const userId = getUserId(req);
-  await getOrCreateUser(userId); // Ensure user exists in DB
-  const code = Math.random().toString(36).slice(2, 6).toUpperCase();
-  const message = `Wealth Wars — Link wallet for user ${userId}, code ${code}`;
-  pendingLinks.set(userId, { userId, message, code });
-  res.json({ message });
-});
+// =============================================================================
+// Initialize Lotto Services
+// =============================================================================
 
-// Finish link
-const finishBody = z.object({ address: z.string(), signature: z.string() });
-app.post('/link/finish', async (req: express.Request, res: express.Response) => {
-  const parse = finishBody.safeParse(req.body);
-  if (!parse.success) return res.status(400).json({ error: 'Invalid body' });
-  const { address, signature } = parse.data;
-  const userId = getUserId(req);
-  const pending = pendingLinks.get(userId);
-  if (!pending) return res.status(400).json({ error: 'No pending link' });
+let serviceManager: ServiceManager | null = null;
+let userIdentityService: UserIdentityService | null = null;
+
+async function initializeLottoServices(): Promise<void> {
   try {
-    const pubkey = new PublicKey(address);
-    // Verify signature: message must match exactly
-    const msgBytes = Buffer.from(pending.message, 'utf8');
-    const sigBytes = Buffer.from(signature, 'base64');
-  // Verify with ed25519 (tweetnacl)
-  const ok = nacl.sign.detached.verify(new Uint8Array(msgBytes), new Uint8Array(sigBytes), pubkey.toBytes());
-    if (!ok) return res.status(400).json({ error: 'Bad signature' });
-    // store mapping in database
-    await updateUserWallet(userId, pubkey.toBase58());
-    pendingLinks.delete(userId);
-    res.json({ linked: true, wallet: pubkey.toBase58() });
-  } catch (e: any) {
-    res.status(400).json({ error: 'Verification failed', details: e?.message });
-  }
-});
-
-// Wealth balance for address
-app.get('/wallet/:address/wealth', async (req: express.Request, res: express.Response) => {
-  try {
-    const { address } = req.params;
-    if (!WEALTH_MINT) return res.status(500).json({ error: 'WEALTH_MINT not set' });
-    const cacheKey = `wealth:${address}`;
-    const cached = cache.get(cacheKey);
-    if (cached) return res.json(cached);
-
-    const owner = new PublicKey(address);
-    const mint = new PublicKey(WEALTH_MINT);
-    // Fetch SPL token accounts for owner+mint
-    const resp = await conn.getParsedTokenAccountsByOwner(owner, { mint });
-    let uiAmount = 0;
-    for (const a of resp.value) {
-      const info: any = a.account.data.parsed.info;
-      const amount = Number(info.tokenAmount.uiAmount || 0);
-      uiAmount += amount;
+    // Load authority keypair
+    const authoritySecretKey = process.env.AUTHORITY_SECRET_KEY;
+    if (!authoritySecretKey) {
+      throw new Error('AUTHORITY_SECRET_KEY not configured');
     }
-    const tier = wealthTier(uiAmount);
-    const result = { address, uiAmount, tier };
-    cache.set(cacheKey, result);
-    res.json(result);
-  } catch (e: any) {
-    res.status(400).json({ error: e?.message || 'Failed to fetch wealth' });
-  }
-});
 
-// /me combines profile + wealth (if linked)
-app.get('/me', async (req: express.Request, res: express.Response) => {
-  const userId = getUserId(req);
-  const user = await getOrCreateUser(userId);
-  let wealth = null as null | { uiAmount: number; tier: string };
-  if (user.wallet) {
+    let authorityKeypair: Keypair;
     try {
-      wealth = await getWealth(user.wallet);
-    } catch {}
-  }
-  res.json({ id: user.id, wallet: user.wallet || null, wealth });
-});
-
-app.get('/healthz', (_: express.Request, res: express.Response) => res.json({ ok: true, cluster: CLUSTER }));
-
-// Test route
-app.get('/test', (_: express.Request, res: express.Response) => res.json({ message: 'Server is working' }));
-
-// Lotto API routes
-app.get('/api/lotto/rounds', async (req: express.Request, res: express.Response) => {
-  try {
-    const rounds = await prisma.round.findMany({
-      include: { entries: { include: { payments: true } }, winnerEntry: true },
-      orderBy: { createdAt: 'desc' },
-      take: 20,
-    });
-    res.json(rounds.map(serializeRound));
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch rounds' });
-  }
-});
-
-app.get('/api/lotto/current-round', async (req: express.Request, res: express.Response) => {
-  try {
-    const round = await prisma.round.findFirst({
-      where: { status: 'OPEN' },
-      include: { entries: { include: { payments: true } } },
-    });
-    if (!round) return res.status(404).json({ error: 'No active round' });
-    res.json(serializeRound(round));
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch current round' });
-  }
-});
-
-app.post('/api/lotto/rounds', async (req: express.Request, res: express.Response) => {
-  // Admin only - check header or env
-  const adminKey = req.headers['x-admin-key'];
-  if (adminKey !== process.env.ADMIN_KEY) return res.status(403).json({ error: 'Unauthorized' });
-
-  try {
-    const round = await prisma.round.create({ data: {} });
-    res.json(round);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to create round' });
-  }
-});
-
-app.put('/api/lotto/rounds/:id/close', async (req: express.Request, res: express.Response) => {
-  const adminKey = req.headers['x-admin-key'];
-  if (adminKey !== process.env.ADMIN_KEY) return res.status(403).json({ error: 'Unauthorized' });
-
-  const { id } = req.params;
-  try {
-    const round = await prisma.round.findUnique({ where: { id }, include: { entries: true } });
-    if (!round || round.status !== 'OPEN') return res.status(400).json({ error: 'Round not open' });
-
-    // Pick winner randomly
-    const entries = round.entries;
-    if (entries.length === 0) return res.status(400).json({ error: 'No entries' });
-
-    const winnerEntry = entries[Math.floor(Math.random() * entries.length)];
-
-    await prisma.round.update({
-      where: { id },
-      data: {
-        status: 'CLOSED',
-        closedAt: new Date(),
-        winner: winnerEntry.wallet,
-        winnerEntryId: winnerEntry.id,
-      },
-    });
-
-    res.json({ message: 'Round closed', winner: winnerEntry.wallet });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to close round' });
-  }
-});
-
-app.post('/api/lotto/join', async (req: express.Request, res: express.Response) => {
-  const userId = getUserId(req);
-  console.log('[backend] Lotto join attempt for userId:', userId);
-  const { amount } = req.body; // in lamports
-  const minEntry = Number(process.env.LOTTO_MIN_ENTRY) || 1000000; // 1 $WEALTH
-
-  if (!amount || amount < minEntry) return res.status(400).json({ error: `Minimum entry is ${minEntry} lamports` });
-
-  try {
-    const user = await getOrCreateUser(userId);
-    console.log('[backend] User data:', user);
-    if (!user.wallet) {
-      console.log('[backend] Wallet not linked for user:', userId);
-      return res.status(400).json({ error: 'Wallet not linked' });
+      // Try base58 format
+      const secretKeyBytes = bs58.decode(authoritySecretKey);
+      authorityKeypair = Keypair.fromSecretKey(secretKeyBytes);
+    } catch {
+      try {
+        // Try JSON array format
+        const secretKeyBytes = new Uint8Array(JSON.parse(authoritySecretKey));
+        authorityKeypair = Keypair.fromSecretKey(secretKeyBytes);
+      } catch {
+        throw new Error('Invalid AUTHORITY_SECRET_KEY format');
+      }
     }
 
-    // Check wealth
-    const wealth = await getWealth(user.wallet);
-    if (wealth.uiAmount * 1e9 < amount) return res.status(400).json({ error: 'Insufficient $WEALTH' });
+    console.log('[Lotto] Authority:', authorityKeypair.publicKey.toBase58());
 
-    // Get current round
-    const round = await prisma.round.findFirst({ where: { status: 'OPEN' } });
-    if (!round) return res.status(400).json({ error: 'No active round' });
-
-    // Check if already joined
-    // TEMP: Allow multiple joins for testing
-    // const existing = await prisma.entry.findFirst({ where: { roundId: round.id, userId } });
-    // if (existing) return res.status(400).json({ error: 'Already joined this round' });
-
-    // Check max entries
-    const entryCount = await prisma.entry.count({ where: { roundId: round.id } });
-    const maxEntries = Number(process.env.LOTTO_MAX_ENTRIES_PER_ROUND) || 1000;
-    if (entryCount >= maxEntries) return res.status(400).json({ error: 'Round is full' });
-
-    // Create entry
-    const amountLamports = BigInt(amount);
-
-    const entry = await prisma.entry.create({
-      data: {
-        roundId: round.id,
-        userId,
-        wallet: user.wallet,
-        amount: amountLamports,
-        ticketCount: Math.floor(amount / minEntry), // 1 ticket per min entry
-      },
+    // Initialize service manager
+    serviceManager = new ServiceManager({
+      authorityKeypair,
+      enableHealthMonitor: true,
+      healthCheckIntervalMs: 30000,
     });
 
-    // Create payment (pending)
-    const reference = `lotto-${entry.id}-${Date.now()}`;
-    const payment = await prisma.payment.create({
-      data: {
-        reference,
-        amount: amountLamports,
-        wallet: user.wallet,
-        entryId: entry.id,
-      },
-    });
+    await serviceManager.start();
 
-    // Update round pot
-    await prisma.round.update({
-      where: { id: round.id },
-      data: { potAmount: { increment: amountLamports } },
-    });
+    // Get services
+    const services = serviceManager.getServices();
+    
+    // Initialize user identity service
+    userIdentityService = new UserIdentityService(services.prisma);
+
+    console.log('[Lotto] ✅ All services initialized successfully');
+  } catch (error) {
+    console.error('[Lotto] ❌ Failed to initialize services:', error);
+    throw error;
+  }
+}
+
+// =============================================================================
+// Initialize Telegram Bot (Optional)
+// =============================================================================
+
+let telegramBot: any = null;
+
+function initializeTelegramBot(): void {
+  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  
+  if (!botToken || botToken === 'your_bot_token_here') {
+    console.log('[Telegram] Bot token not configured, skipping');
+    return;
+  }
+
+  if (!serviceManager || !userIdentityService) {
+    console.log('[Telegram] Lotto services not initialized, bot will have limited functionality');
+  }
+
+  try {
+    const services = serviceManager ? serviceManager.getServices() : undefined;
+    const botServices = services && userIdentityService ? {
+      prisma: services.prisma,
+      userIdentity: userIdentityService,
+      lottoServices: services.lottoServices,
+    } : undefined;
+
+    telegramBot = createTelegramBot(botToken, botServices);
+    telegramBot.launch();
+    console.log('[Telegram] ✅ Bot initialized and launched');
+  } catch (error) {
+    console.error('[Telegram] ❌ Failed to initialize bot:', error);
+  }
+}
+
+// =============================================================================
+// Express App Setup
+// =============================================================================
+
+const app = express();
+
+// Trust proxy (for Railway, Heroku, etc.)
+app.set('trust proxy', 1);
+
+// Middleware
+app.use(cors({
+  origin: process.env.CORS_ORIGIN || '*',
+  credentials: true,
+}));
+
+app.use(express.json());
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 60_000, // 1 minute
+  max: 100, // 100 requests per minute
+  message: { success: false, error: 'Too many requests' },
+});
+app.use('/api/', limiter);
+
+// Serve static files
+app.use(express.static('public'));
+
+// =============================================================================
+// Health Check Routes
+// =============================================================================
+
+/**
+ * GET /health
+ * Overall system health check
+ */
+app.get('/health', async (req, res) => {
+  try {
+    // Check database
+    await prisma.$queryRaw`SELECT 1`;
+
+    // Get lotto services health if available
+    let lottoHealth = null;
+    if (serviceManager && serviceManager.isReady()) {
+      const services = serviceManager.getServices();
+      if (services.healthMonitor) {
+        lottoHealth = services.healthMonitor.getLastHealthCheck();
+      }
+    }
 
     res.json({
-      entry: serializeEntry(entry),
-      payment: serializePayment(payment),
-      solanaPayUrl: `solana:${process.env.WEALTH_MINT}?amount=${Number(amountLamports) / 1e9}&recipient=${process.env.TREASURY_WALLET}&reference=${reference}&label=WealthWars%20Lotto&message=Join%20Round%20${round.id}`,
+      success: true,
+      data: {
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        services: {
+          database: 'healthy',
+          lotto: serviceManager?.isReady() ? 'healthy' : 'not initialized',
+          telegram: telegramBot ? 'healthy' : 'not configured',
+        },
+        lottoHealth,
+      },
     });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to join' });
-  }
-});
-
-app.get('/api/lotto/my-entries', async (req: express.Request, res: express.Response) => {
-  const userId = getUserId(req);
-  try {
-    const entries = await prisma.entry.findMany({
-      where: { userId },
-      include: { round: true, payments: true },
-      orderBy: { createdAt: 'desc' },
+    res.status(503).json({
+      success: false,
+      error: 'Service unavailable',
+      details: error instanceof Error ? error.message : 'Unknown error',
     });
-    res.json(entries.map((entry) => ({
-      ...serializeEntry(entry),
-      round: entry.round ? serializeRound(entry.round) : null,
-    })));
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch entries' });
   }
 });
 
-app.post('/api/lotto/confirm-payment', async (req: express.Request, res: express.Response) => {
-  const { reference, signature } = req.body;
-  try {
-    const payment = await prisma.payment.findUnique({ where: { reference } });
-    if (!payment) return res.status(404).json({ error: 'Payment not found' });
-
-    if (signature) {
-      // Verify transaction
-      const tx = await conn.getTransaction(signature);
-      if (!tx) return res.status(400).json({ error: 'Transaction not found' });
-
-      // Check if to treasury, amount matches, and memo has reference
-      const treasury = new PublicKey(process.env.TREASURY_WALLET!);
-      let valid = false;
-      for (const ix of tx.transaction.message.instructions) {
-        // Assume memo is in ix.data
-        const memo = Buffer.from(ix.data).toString('utf8');
-        if (memo.includes(reference)) {
-          // Check transfer amount, but simplified
-          valid = true;
-          break;
-        }
-      }
-      if (!valid) return res.status(400).json({ error: 'Invalid transaction' });
-    }
-
-    await prisma.payment.update({
-      where: { reference },
-      data: { status: 'CONFIRMED' },
-    });
-
-    res.json({ message: 'Payment confirmed' });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to confirm payment' });
-  }
-});
-
-// Telegram webhook
-app.post('/api/tg/webhook', (req: express.Request, res: express.Response) => {
-  if (!telegramBot) {
-    return res.status(500).json({ error: 'Telegram bot not configured' });
-  }
-  handleTelegramWebhook(req, res, telegramBot);
-});
-
-// Global error handlers
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('[backend] Unhandled Rejection at:', promise, 'reason:', reason);
-});
-
-process.on('uncaughtException', (err) => {
-  console.error('[backend] Uncaught Exception:', err);
-  process.exit(1);
-});
-
-// Start server
-async function startServer() {
-  await initializeDatabase();
-
-  app.listen(Number(PORT), '0.0.0.0', () => {
-    console.log(`[backend] listening on :${PORT}, cluster=${CLUSTER}`);
-    console.log(`[backend] Server started successfully`);
-  }).on('error', (err) => {
-    console.error('[backend] Server failed to start:', err);
-    process.exit(1);
+/**
+ * GET /api/health
+ * API-specific health check
+ */
+app.get('/api/health', (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      status: 'healthy',
+      service: 'api',
+      timestamp: new Date().toISOString(),
+    },
   });
+});
+
+// =============================================================================
+// Lotto API Routes
+// =============================================================================
+
+/**
+ * Mount lotto routes if services are initialized
+ */
+app.use('/api/lotto', (req, res, next) => {
+  if (!serviceManager || !userIdentityService) {
+    return res.status(503).json({
+      success: false,
+      error: 'Lotto services not initialized',
+    });
+  }
+
+  const services = serviceManager.getServices();
+  const lottoRouter = createLottoRoutes(services.lottoServices, userIdentityService);
+  lottoRouter(req, res, next);
+});
+
+// =============================================================================
+// Error Handling
+// =============================================================================
+
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    error: 'Not found',
+    path: req.path,
+  });
+});
+
+// Global error handler
+app.use(errorHandler);
+
+// =============================================================================
+// Server Startup
+// =============================================================================
+
+async function startServer() {
+  try {
+    // Initialize database
+    await prisma.$connect();
+    console.log('[Database] ✅ Connected');
+
+    // Initialize lotto services
+    await initializeLottoServices();
+
+    // Initialize Telegram bot
+    initializeTelegramBot();
+
+    // Start Express server
+    app.listen(PORT, () => {
+      console.log('='.repeat(60));
+      console.log(`✅ Server running on http://localhost:${PORT}`);
+      console.log('='.repeat(60));
+      console.log('Available endpoints:');
+      console.log(`  GET  /health              - System health check`);
+      console.log(`  GET  /api/health          - API health check`);
+      console.log(`  GET  /api/lotto/health    - Lotto services health`);
+      console.log('');
+      console.log('Lotto API:');
+      console.log(`  POST /api/lotto/users/web         - Create web user`);
+      console.log(`  POST /api/lotto/users/telegram    - Create Telegram user`);
+      console.log(`  POST /api/lotto/rounds            - Create round (admin)`);
+      console.log(`  GET  /api/lotto/rounds/current    - Get current round`);
+      console.log(`  POST /api/lotto/rounds/:id/join/web      - Join as web user`);
+      console.log(`  POST /api/lotto/rounds/:id/join/telegram - Join as Telegram user`);
+      console.log(`  POST /api/lotto/rounds/:id/settle - Settle round (admin)`);
+      console.log(`  POST /api/lotto/entries/:id/claim - Claim payout/refund`);
+      console.log('='.repeat(60));
+    });
+  } catch (error) {
+    console.error('❌ Failed to start server:', error);
+    process.exit(1);
+  }
 }
 
-startServer().catch((err) => {
-  console.error('[backend] Failed to start server:', err);
+// Graceful shutdown
+process.on('SIGTERM', async () => {
+  console.log('\nSIGTERM received, shutting down gracefully...');
+  if (serviceManager) {
+    await serviceManager.stop();
+  }
+  if (telegramBot) {
+    telegramBot.stop();
+  }
+  await prisma.$disconnect();
+  process.exit(0);
+});
+
+process.on('SIGINT', async () => {
+  console.log('\nSIGINT received, shutting down gracefully...');
+  if (serviceManager) {
+    await serviceManager.stop();
+  }
+  if (telegramBot) {
+    telegramBot.stop();
+  }
+  await prisma.$disconnect();
+  process.exit(0);
+});
+
+// Start the server
+startServer().catch((error) => {
+  console.error('Fatal error during startup:', error);
   process.exit(1);
 });

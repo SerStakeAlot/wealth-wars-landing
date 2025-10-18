@@ -14,13 +14,19 @@ datasource db {
 }
 
 model User {
-  id        String   @id
-  wallet    String?  // Solana wallet address
-  telegramId String? @unique // Telegram user ID
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(cuid())
+  wallet      String?  @unique // Solana wallet address (web players)
+  telegramId  String?  @unique // Telegram user ID (bot players)
+  username    String   // Display name: @username (Telegram) or custom (Web)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  entries   Entry[]
+  entries     Entry[]
+  
+  @@index([wallet])
+  @@index([telegramId])
+  @@index([username])
   @@map("users")
 }
 
@@ -35,7 +41,26 @@ model Round {
   closedAt    DateTime?
   settledAt   DateTime?
 
+  // On-chain state tracking
+  onchainRoundId     BigInt?   @unique // on-chain round ID (u64)
+  onchainAddress     String?   @unique // PDA address of the round
+  authorityAddress   String?   // authority who created the round
+  ticketPriceLamports BigInt?  // price per ticket on-chain
+  maxEntries         Int?      // max entries allowed (0 = unlimited)
+  startSlot          BigInt?   // slot when round opened
+  endSlot            BigInt?   // slot when round closes
+  treasuryCutLamports BigInt?  // amount retained by treasury
+  retainedBps        Int?      // basis points retained (e.g., 500 = 5%)
+  entryCount         Int?      @default(0) // total entries on-chain
+  
+  // Transaction tracking
+  initTxSignature    String?   // initialize_round transaction
+  settleTxSignature  String?   // settle_round transaction
+  lastSyncedAt       DateTime? // last time synced from on-chain
+  syncError          String?   // last sync error if any
+
   entries     Entry[]
+  transactions Transaction[]
   @@map("rounds")
 }
 
@@ -47,6 +72,17 @@ model Entry {
   amount      BigInt   // lamports deposited
   ticketCount Int      @default(1)
   createdAt   DateTime @default(now())
+
+  // On-chain state tracking
+  onchainAddress  String?  @unique // PDA address of the entry
+  nonce           Int?     // nonce used for entry PDA
+  claimed         Boolean  @default(false) // whether payout/refund was claimed
+  claimedAt       DateTime?
+  claimTxSignature String? // transaction signature of claim
+  
+  // Transaction tracking
+  joinTxSignature String?  // join_round transaction signature
+  lastSyncedAt    DateTime? // last time synced from on-chain
 
   round       Round    @relation(fields: [roundId], references: [id], onDelete: Cascade)
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -68,14 +104,62 @@ model Payment {
   @@map("payments")
 }
 
+model Transaction {
+  id          String            @id @default(cuid())
+  signature   String            @unique // Transaction signature
+  type        TransactionType   // Type of transaction
+  status      TransactionStatus @default(PENDING)
+  roundId     String?           // Associated round
+  userId      String?           // User who initiated
+  wallet      String?           // Wallet address
+  
+  // Transaction details
+  slot        BigInt?           // Slot number when confirmed
+  blockTime   DateTime?         // Block timestamp
+  fee         BigInt?           // Transaction fee in lamports
+  
+  // Error tracking
+  error       String?           // Error message if failed
+  retryCount  Int               @default(0)
+  
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  confirmedAt DateTime?
+
+  round       Round?            @relation(fields: [roundId], references: [id])
+  
+  @@index([roundId])
+  @@index([wallet])
+  @@index([type])
+  @@index([status])
+  @@map("transactions")
+}
+
 enum RoundStatus {
   OPEN
   CLOSED
   SETTLED
+  CANCELLED
 }
 
 enum PaymentStatus {
   PENDING
+  CONFIRMED
+  FAILED
+}
+
+enum TransactionType {
+  INITIALIZE_ROUND
+  JOIN_ROUND
+  SETTLE_ROUND
+  CLAIM_PAYOUT
+  CLAIM_REFUND
+  ADMIN_CLOSE
+}
+
+enum TransactionStatus {
+  PENDING
+  SUBMITTED
   CONFIRMED
   FAILED
 }
