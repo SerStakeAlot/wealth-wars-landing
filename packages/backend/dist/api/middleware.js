@@ -95,9 +95,9 @@ export function requireAdmin(req, res, next) {
         });
     }
     const token = authHeader.substring(7);
-    const adminToken = process.env.ADMIN_API_TOKEN;
+    const adminToken = process.env.ADMIN_API_TOKEN || process.env.ADMIN_API_KEY;
     if (!adminToken) {
-        console.error('[Auth] ADMIN_API_TOKEN not configured');
+        console.error('[Auth] ADMIN_API_TOKEN or ADMIN_API_KEY not configured');
         return res.status(500).json({
             success: false,
             error: 'Server configuration error',
