@@ -17,9 +17,6 @@ RUN npx prisma generate --schema=./prisma/schema.prisma
 # Copy pre-built dist files with all subdirectories
 COPY packages/backend/dist/ ./dist/
 
-# Copy scripts if needed
-COPY packages/backend/scripts/ ./scripts/
-
 # Expose port
 EXPOSE 8787
 
