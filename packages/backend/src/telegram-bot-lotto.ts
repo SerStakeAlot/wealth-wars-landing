@@ -10,7 +10,7 @@ import { PrismaClient } from '@prisma/client';
 import { PublicKey } from '@solana/web3.js';
 import nacl from 'tweetnacl';
 import { UserIdentityService } from './services/user-identity.js';
-import { LottoServices } from './services/lotto-services.js';
+import { LottoServices } from './services/lotto/index.js';
 import { getWealth } from './index.js';
 
 const toBigInt = (value: number | bigint) => (typeof value === 'bigint' ? value : BigInt(value));
@@ -31,6 +31,25 @@ interface BotServices {
   prisma: PrismaClient;
   userIdentity: UserIdentityService;
   lottoServices: LottoServices;
+}
+
+// Helpers to tolerate legacy DB missing users.username
+function isMissingUsernameColumn(err: any): boolean {
+  const msg = String(err?.message || '');
+  return err?.code === 'P2022' || /users\.username/.test(msg);
+}
+
+async function ensureUsersUsername(prisma: PrismaClient) {
+  try {
+    await prisma.$executeRawUnsafe(`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "username" TEXT`);
+    await prisma.$executeRawUnsafe(`UPDATE "users"
+      SET "username" = COALESCE(NULLIF("username", ''),
+        CASE WHEN "telegramId" IS NOT NULL THEN '@' || "telegramId"
+             ELSE 'user_' || SUBSTR("id", 1, 8) END)
+      WHERE "username" IS NULL OR "username" = ''`);
+  } catch (e) {
+    // Best effort; continue even if this fails
+  }
 }
 
 /**
@@ -99,9 +118,23 @@ Send your Solana wallet address, then sign the verification message.`);
   bot.command('balance', async (ctx) => {
     try {
       const telegramId = ctx.from.id.toString();
-      const user = await prisma.user.findFirst({
-        where: { telegramId },
-      });
+      let user = null as null | { id: string; wallet: string | null; telegramId: string | null };
+      try {
+        user = await prisma.user.findFirst({
+          where: { telegramId },
+          select: { id: true, wallet: true, telegramId: true },
+        });
+      } catch (err: any) {
+        if (isMissingUsernameColumn(err)) {
+          await ensureUsersUsername(prisma);
+          user = await prisma.user.findFirst({
+            where: { telegramId },
+            select: { id: true, wallet: true, telegramId: true },
+          });
+        } else {
+          throw err;
+        }
+      }
 
       if (!user || !user.wallet) {
         await ctx.reply('⚠️ No wallet linked. Send your Solana wallet address first!');
@@ -199,9 +232,7 @@ Required: ${amount.toFixed(2)} $WEALTH`);
       const entry = await lottoServices.entryProcessor.joinRound({
         roundId: round.id,
         userId: user.id,
-        wallet: user.wallet,
-        amount: amountLamports,
-        tickets: 1, // Each entry gets 1 ticket for now
+        userWallet: new PublicKey(user.wallet),
       });
 
       // Wait a bit for transaction confirmation
@@ -302,9 +333,7 @@ Required: ${ticketPrice.toFixed(2)} $WEALTH`);
       const entry = await lottoServices.entryProcessor.joinRound({
         roundId: round.id,
         userId: user.id,
-        wallet: user.wallet,
-        amount: BigInt(round.ticketPriceLamports.toString()),
-        tickets: 1,
+        userWallet: new PublicKey(user.wallet),
       });
 
       await new Promise(resolve => setTimeout(resolve, 2000));
@@ -357,9 +386,23 @@ Transaction is confirming...`);
 
     try {
       // Check if user already has wallet
-      const existingUser = await prisma.user.findFirst({
-        where: { telegramId },
-      });
+      let existingUser: { id: string; wallet: string | null; telegramId: string | null } | null = null;
+      try {
+        existingUser = await prisma.user.findFirst({
+          where: { telegramId },
+          select: { id: true, wallet: true, telegramId: true },
+        });
+      } catch (err: any) {
+        if (isMissingUsernameColumn(err)) {
+          await ensureUsersUsername(prisma);
+          existingUser = await prisma.user.findFirst({
+            where: { telegramId },
+            select: { id: true, wallet: true, telegramId: true },
+          });
+        } else {
+          throw err;
+        }
+      }
 
       if (existingUser?.wallet) {
         return ctx.reply(`✅ Wallet already linked: \`${existingUser.wallet}\`
@@ -495,17 +538,35 @@ Sign in Phantom app and paste signature here.
               data: { wallet: pending.walletAddress },
             });
           } else {
-            // Fallback: direct database update
-            await prisma.user.upsert({
-              where: { telegramId },
-              update: { wallet: pending.walletAddress },
-              create: { 
-                id: `tg_${telegramId}`, 
-                telegramId, 
-                wallet: pending.walletAddress,
-                username,
-              },
-            });
+            // Fallback: direct database update without touching username
+            try {
+              await prisma.user.upsert({
+                where: { telegramId },
+                update: { wallet: pending.walletAddress },
+                create: { 
+                  id: `tg_${telegramId}`, 
+                  telegramId, 
+                  wallet: pending.walletAddress,
+                  username: `user_${telegramId.slice(0, 8)}`,
+                },
+              });
+            } catch (err: any) {
+              if (isMissingUsernameColumn(err)) {
+                await ensureUsersUsername(prisma);
+                await prisma.user.upsert({
+                  where: { telegramId },
+                  update: { wallet: pending.walletAddress },
+                  create: { 
+                    id: `tg_${telegramId}`, 
+                    telegramId, 
+                    wallet: pending.walletAddress,
+                    username: `user_${telegramId.slice(0, 8)}`,
+                  },
+                });
+              } else {
+                throw err;
+              }
+            }
           }
 
           pendingWalletLinks.delete(telegramId);

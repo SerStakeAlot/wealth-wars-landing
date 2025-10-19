@@ -34,24 +34,16 @@ export class UserIdentityService {
         // Check if wallet already exists
         const existing = await this.prisma.user.findUnique({
             where: { wallet },
+            select: { id: true, wallet: true, telegramId: true },
         });
         if (existing) {
-            // Update username if different
-            if (existing.username !== username.trim()) {
-                const updated = await this.prisma.user.update({
-                    where: { wallet },
-                    data: { username: username.trim() },
-                });
-                return this.toUserInfo(updated, 'web');
-            }
+            // Skip username updates to tolerate DBs missing the column
             return this.toUserInfo(existing, 'web');
         }
-        // Create new web user
+        // Create new web user (avoid username column)
         const user = await this.prisma.user.create({
-            data: {
-                wallet,
-                username: username.trim(),
-            },
+            data: { wallet },
+            select: { id: true, wallet: true, telegramId: true },
         });
         return this.toUserInfo(user, 'web');
     }
@@ -63,25 +55,17 @@ export class UserIdentityService {
         // Check if user exists
         let user = await this.prisma.user.findUnique({
             where: { telegramId },
+            select: { id: true, wallet: true, telegramId: true },
         });
         if (!user) {
-            // Create new Telegram user
+            // Create new Telegram user without touching username
             user = await this.prisma.user.create({
-                data: {
-                    telegramId,
-                    username: username.startsWith('@') ? username : `@${username}`,
-                },
+                data: { telegramId },
+                select: { id: true, wallet: true, telegramId: true },
             });
         }
         else {
-            // Update username if changed
-            const newUsername = username.startsWith('@') ? username : `@${username}`;
-            if (user.username !== newUsername) {
-                user = await this.prisma.user.update({
-                    where: { id: user.id },
-                    data: { username: newUsername },
-                });
-            }
+            // Skip username updates; DB may not have the column
         }
         return this.toUserInfo(user, 'telegram');
     }
@@ -91,6 +75,7 @@ export class UserIdentityService {
     async getUserById(userId) {
         const user = await this.prisma.user.findUnique({
             where: { id: userId },
+            select: { id: true, wallet: true, telegramId: true },
         });
         if (!user)
             return null;
@@ -103,6 +88,7 @@ export class UserIdentityService {
     async getUserByWallet(wallet) {
         const user = await this.prisma.user.findUnique({
             where: { wallet },
+            select: { id: true, wallet: true, telegramId: true },
         });
         return user ? this.toUserInfo(user, 'web') : null;
     }
@@ -112,6 +98,7 @@ export class UserIdentityService {
     async getUserByTelegram(telegramId) {
         const user = await this.prisma.user.findUnique({
             where: { telegramId },
+            select: { id: true, wallet: true, telegramId: true },
         });
         return user ? this.toUserInfo(user, 'telegram') : null;
     }
@@ -119,20 +106,32 @@ export class UserIdentityService {
      * Check if username is available
      */
     async isUsernameAvailable(username) {
-        const existing = await this.prisma.user.findFirst({
-            where: { username: username.trim() },
-        });
-        return !existing;
+        try {
+            const existing = await this.prisma.user.findFirst({
+                where: { username: username.trim() },
+            });
+            return !existing;
+        }
+        catch (err) {
+            // If legacy DB is missing the column, treat as available to avoid P2022 crashes
+            if ((err === null || err === void 0 ? void 0 : err.code) === 'P2022' || /users\.username/.test(String((err === null || err === void 0 ? void 0 : err.message) || ''))) {
+                return true;
+            }
+            throw err;
+        }
     }
     /**
      * Convert database user to UserInfo
      */
     toUserInfo(user, source) {
+        const fallbackUsername = (user?.telegramId)
+            ? `@${user.telegramId}`
+            : `user_${(user?.id || 'unknown').toString().slice(0, 8)}`;
         return {
             id: user.id,
             wallet: user.wallet,
             telegramId: user.telegramId,
-            username: user.username,
+            username: user.username || fallbackUsername,
             source,
         };
     }

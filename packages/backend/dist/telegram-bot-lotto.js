@@ -14,6 +14,22 @@ const bigintToLamports = (value) => Number(toBigInt(value)) / 1e9;
 const lamportsToWealth = (lamports) => Number(lamports) / 1e9;
 // In-memory store for pending wallet links
 const pendingWalletLinks = new Map();
+// Helpers to tolerate legacy DB missing users.username
+function isMissingUsernameColumn(err) {
+        const msg = String((err === null || err === void 0 ? void 0 : err.message) || '');
+        return ((err === null || err === void 0 ? void 0 : err.code) === 'P2022') || /users\.username/.test(msg);
+}
+async function ensureUsersUsername(prisma) {
+        try {
+                await prisma.$executeRawUnsafe(`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "username" TEXT`);
+                await prisma.$executeRawUnsafe(`UPDATE "users"
+            SET "username" = COALESCE(NULLIF("username", ''),
+                CASE WHEN "telegramId" IS NOT NULL THEN '@' || "telegramId"
+                         ELSE 'user_' || SUBSTR("id", 1, 8) END)
+            WHERE "username" IS NULL OR "username" = ''`);
+        }
+        catch (e) { }
+}
 /**
  * Create enhanced Telegram bot with lotto service integration
  */
@@ -72,9 +88,25 @@ Send your Solana wallet address, then sign the verification message.`);
     bot.command('balance', async (ctx) => {
         try {
             const telegramId = ctx.from.id.toString();
-            const user = await prisma.user.findFirst({
-                where: { telegramId },
-            });
+            let user = null;
+            try {
+                user = await prisma.user.findFirst({
+                    where: { telegramId },
+                    select: { id: true, wallet: true, telegramId: true },
+                });
+            }
+            catch (err) {
+                if (isMissingUsernameColumn(err)) {
+                    await ensureUsersUsername(prisma);
+                    user = await prisma.user.findFirst({
+                        where: { telegramId },
+                        select: { id: true, wallet: true, telegramId: true },
+                    });
+                }
+                else {
+                    throw err;
+                }
+            }
             if (!user || !user.wallet) {
                 await ctx.reply('⚠️ No wallet linked. Send your Solana wallet address first!');
                 return;
@@ -294,9 +326,25 @@ Transaction is confirming...`);
             return;
         try {
             // Check if user already has wallet
-            const existingUser = await prisma.user.findFirst({
-                where: { telegramId },
-            });
+            let existingUser = null;
+            try {
+                existingUser = await prisma.user.findFirst({
+                    where: { telegramId },
+                    select: { id: true, wallet: true, telegramId: true },
+                });
+            }
+            catch (err) {
+                if (isMissingUsernameColumn(err)) {
+                    await ensureUsersUsername(prisma);
+                    existingUser = await prisma.user.findFirst({
+                        where: { telegramId },
+                        select: { id: true, wallet: true, telegramId: true },
+                    });
+                }
+                else {
+                    throw err;
+                }
+            }
             if (existingUser?.wallet) {
                 return ctx.reply(`✅ Wallet already linked: \`${existingUser.wallet}\`
 
@@ -422,17 +470,37 @@ Sign in Phantom app and paste signature here.
                         });
                     }
                     else {
-                        // Fallback: direct database update
-                        await prisma.user.upsert({
-                            where: { telegramId },
-                            update: { wallet: pending.walletAddress },
-                            create: {
-                                id: `tg_${telegramId}`,
-                                telegramId,
-                                wallet: pending.walletAddress,
-                                username,
-                            },
-                        });
+                        // Fallback: direct database update without username column
+                        try {
+                            await prisma.user.upsert({
+                                where: { telegramId },
+                                update: { wallet: pending.walletAddress },
+                                create: {
+                                    id: `tg_${telegramId}`,
+                                    telegramId,
+                                    wallet: pending.walletAddress,
+                                    username: `user_${telegramId.slice(0, 8)}`,
+                                },
+                            });
+                        }
+                        catch (err) {
+                            if (isMissingUsernameColumn(err)) {
+                                await ensureUsersUsername(prisma);
+                                await prisma.user.upsert({
+                                    where: { telegramId },
+                                    update: { wallet: pending.walletAddress },
+                                    create: {
+                                        id: `tg_${telegramId}`,
+                                        telegramId,
+                                        wallet: pending.walletAddress,
+                                        username: `user_${telegramId.slice(0, 8)}`,
+                                    },
+                                });
+                            }
+                            else {
+                                throw err;
+                            }
+                        }
                     }
                     pendingWalletLinks.delete(telegramId);
                     ctx.reply(`✅ **Wallet Successfully Linked!**

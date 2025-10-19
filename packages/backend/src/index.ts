@@ -302,6 +302,28 @@ app.get('/api/health', (req, res) => {
 });
 
 // =============================================================================
+// Admin: Ensure DB schema (protected)
+// =============================================================================
+
+app.post('/api/admin/ensure-db', async (req, res) => {
+  try {
+    const adminKey = process.env.ADMIN_API_KEY || process.env.ADMIN_API_TOKEN;
+    const auth = req.headers['authorization'] || '';
+    if (!adminKey || typeof auth !== 'string' || !auth.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    const token = auth.slice('Bearer '.length);
+    if (token !== adminKey) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    await ensureDbSchema();
+    res.json({ ok: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message || 'Failed to ensure DB schema' });
+  }
+});
+
+// =============================================================================
 // Lotto API Routes
 // =============================================================================
 
