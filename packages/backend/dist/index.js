@@ -14,7 +14,8 @@ import { ServiceManager } from './services/service-manager.js';
 import { UserIdentityService } from './services/user-identity.js';
 import { createLottoRoutes } from './api/lotto-routes.js';
 import { errorHandler } from './api/middleware.js';
-import { createTelegramBot } from './telegram-bot.js';
+import { createTelegramBot as createSimpleBot } from './telegram-bot.js';
+import { createTelegramBot as createLottoBot } from './telegram-bot-lotto.js';
 // =============================================================================
 // Environment Configuration
 // =============================================================================
@@ -153,12 +154,22 @@ function initializeTelegramBot() {
         console.log('[Telegram] Bot token not configured, skipping');
         return;
     }
-    if (!serviceManager || !userIdentityService || !serviceManager.isReady()) {
-        console.log('[Telegram] Lotto services not initialized, bot will start in standalone mode');
-    }
     try {
-        // Start bot without depending on ServiceManager; it will use fallback Prisma
-        telegramBot = createTelegramBot(botToken, undefined);
+        // If lotto services are ready, use the lotto-integrated bot
+        if (serviceManager && typeof serviceManager.isReady === 'function' && serviceManager.isReady() && userIdentityService) {
+            const services = serviceManager.getServices();
+            const botServices = {
+                prisma: services.prisma,
+                userIdentity: userIdentityService,
+                lottoServices: services.lottoServices,
+            };
+            telegramBot = createLottoBot(botToken, botServices);
+            console.log('[Telegram] Using lotto-integrated bot');
+        }
+        else {
+            console.log('[Telegram] Lotto services not ready; using standalone bot');
+            telegramBot = createSimpleBot(botToken, undefined);
+        }
         // Catch launch errors (e.g., 409 conflict when another instance is running)
         telegramBot.launch().catch((err) => {
             console.error('[Telegram] Launch failed:', err?.message || err);

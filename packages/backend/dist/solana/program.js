@@ -14,10 +14,37 @@ const __dirname = path.dirname(__filename);
  * Load the Lotto program IDL from the workspace
  */
 export function loadLottoIdl() {
-    // IDL is at workspace root: target/idl/lotto.json
+    // 1) Prefer explicit JSON in env (stringified)
+    const idlJsonStr = process.env.LOTTO_IDL_JSON;
+    if (idlJsonStr && idlJsonStr.trim().length > 0) {
+        try {
+            return JSON.parse(idlJsonStr);
+        }
+        catch (e) {
+            throw new Error('Invalid LOTTO_IDL_JSON: ' + (e?.message || e));
+        }
+    }
+    // 2) Base64-encoded JSON in env
+    const idlBase64 = process.env.LOTTO_IDL_BASE64;
+    if (idlBase64 && idlBase64.trim().length > 0) {
+        try {
+            const jsonStr = Buffer.from(idlBase64, 'base64').toString('utf-8');
+            return JSON.parse(jsonStr);
+        }
+        catch (e) {
+            throw new Error('Invalid LOTTO_IDL_BASE64: ' + (e?.message || e));
+        }
+    }
+    // 3) Custom path
+    const customPath = process.env.LOTTO_IDL_PATH;
+    if (customPath && fs.existsSync(customPath)) {
+        const idlJson = fs.readFileSync(customPath, 'utf-8');
+        return JSON.parse(idlJson);
+    }
+    // 4) Default path in repository: target/idl/lotto.json
     const idlPath = path.join(__dirname, '../../../../target/idl/lotto.json');
     if (!fs.existsSync(idlPath)) {
-        throw new Error(`Lotto IDL not found at ${idlPath}. Run 'anchor build' first.`);
+        throw new Error(`Lotto IDL not found. Provide LOTTO_IDL_JSON or LOTTO_IDL_BASE64 env, or place file at ${idlPath}`);
     }
     const idlJson = fs.readFileSync(idlPath, 'utf-8');
     return JSON.parse(idlJson);
