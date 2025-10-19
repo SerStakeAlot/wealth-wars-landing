@@ -301,8 +301,14 @@ async function startServer() {
         // Initialize database
         await prisma.$connect();
         console.log('[Database] ✅ Connected');
-        // Initialize lotto services
-        await initializeLottoServices();
+        // Initialize lotto services (optional - may fail if IDL not available)
+        try {
+            await initializeLottoServices();
+        }
+        catch (lottoError) {
+            console.warn('[Lotto] ⚠️  Lotto services disabled:', lottoError.message);
+            console.warn('[Lotto] ⚠️  Bot will work but lotto features unavailable');
+        }
         // Initialize Telegram bot
         initializeTelegramBot();
         // Start Express server
