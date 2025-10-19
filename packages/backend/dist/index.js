@@ -159,7 +159,10 @@ function initializeTelegramBot() {
     try {
         // Start bot without depending on ServiceManager; it will use fallback Prisma
         telegramBot = createTelegramBot(botToken, undefined);
-        telegramBot.launch();
+        // Catch launch errors (e.g., 409 conflict when another instance is running)
+        telegramBot.launch().catch((err) => {
+            console.error('[Telegram] Launch failed:', err?.message || err);
+        });
         console.log('[Telegram] ✅ Bot initialized and launched');
     }
     catch (error) {
