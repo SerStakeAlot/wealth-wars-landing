@@ -297,46 +297,52 @@ app.use(errorHandler);
 // Server Startup
 // =============================================================================
 async function startServer() {
+    // Try to connect to the database, but don't crash the bot if it fails
+    let dbConnected = false;
     try {
-        // Initialize database
         await prisma.$connect();
+        dbConnected = true;
         console.log('[Database] ✅ Connected');
-        // Initialize lotto services (optional - may fail if IDL not available)
-        try {
-            await initializeLottoServices();
-        }
-        catch (lottoError) {
-            console.warn('[Lotto] ⚠️  Lotto services disabled:', lottoError.message);
-            console.warn('[Lotto] ⚠️  Bot will work but lotto features unavailable');
-        }
-        // Initialize Telegram bot
-        initializeTelegramBot();
-        // Start Express server
-        app.listen(PORT, () => {
-            console.log('='.repeat(60));
-            console.log(`✅ Server running on http://localhost:${PORT}`);
-            console.log('='.repeat(60));
-            console.log('Available endpoints:');
-            console.log(`  GET  /health              - System health check`);
-            console.log(`  GET  /api/health          - API health check`);
-            console.log(`  GET  /api/lotto/health    - Lotto services health`);
-            console.log('');
-            console.log('Lotto API:');
-            console.log(`  POST /api/lotto/users/web         - Create web user`);
-            console.log(`  POST /api/lotto/users/telegram    - Create Telegram user`);
-            console.log(`  POST /api/lotto/rounds            - Create round (admin)`);
-            console.log(`  GET  /api/lotto/rounds/current    - Get current round`);
-            console.log(`  POST /api/lotto/rounds/:id/join/web      - Join as web user`);
-            console.log(`  POST /api/lotto/rounds/:id/join/telegram - Join as Telegram user`);
-            console.log(`  POST /api/lotto/rounds/:id/settle - Settle round (admin)`);
-            console.log(`  POST /api/lotto/entries/:id/claim - Claim payout/refund`);
-            console.log('='.repeat(60));
-        });
     }
     catch (error) {
-        console.error('❌ Failed to start server:', error);
-        process.exit(1);
+        console.warn('[Database] ⚠️ Failed to connect. Continuing in degraded mode (bot and API may be limited).');
     }
+    // Initialize lotto services (optional)
+    try {
+        await initializeLottoServices();
+    }
+    catch (lottoError) {
+        console.warn('[Lotto] ⚠️  Lotto services disabled:', lottoError.message);
+        console.warn('[Lotto] ⚠️  Bot will work but lotto features unavailable');
+    }
+    // Initialize Telegram bot regardless of DB/lotto state
+    initializeTelegramBot();
+    // Start Express server
+    app.listen(PORT, () => {
+        console.log('='.repeat(60));
+        console.log(`✅ Server running on http://localhost:${PORT}`);
+        console.log('='.repeat(60));
+        console.log('Mode:');
+        console.log(`  Database: ${dbConnected ? 'connected' : 'degraded (not connected)'}`);
+        console.log(`  Lotto: ${serviceManager?.isReady() ? 'initialized' : 'disabled'}`);
+        console.log(`  Telegram: ${process.env.TELEGRAM_BOT_TOKEN ? 'enabled' : 'not configured'}`);
+        console.log('');
+        console.log('Available endpoints:');
+        console.log(`  GET  /health              - System health check`);
+        console.log(`  GET  /api/health          - API health check`);
+        console.log(`  GET  /api/lotto/health    - Lotto services health`);
+        console.log('');
+        console.log('Lotto API:');
+        console.log(`  POST /api/lotto/users/web         - Create web user`);
+        console.log(`  POST /api/lotto/users/telegram    - Create Telegram user`);
+        console.log(`  POST /api/lotto/rounds            - Create round (admin)`);
+        console.log(`  GET  /api/lotto/rounds/current    - Get current round`);
+        console.log(`  POST /api/lotto/rounds/:id/join/web      - Join as web user`);
+        console.log(`  POST /api/lotto/rounds/:id/join/telegram - Join as Telegram user`);
+        console.log(`  POST /api/lotto/rounds/:id/settle - Settle round (admin)`);
+        console.log(`  POST /api/lotto/entries/:id/claim - Claim payout/refund`);
+        console.log('='.repeat(60));
+    });
 }
 // Graceful shutdown
 process.on('SIGTERM', async () => {
@@ -363,6 +369,6 @@ process.on('SIGINT', async () => {
 });
 // Start the server
 startServer().catch((error) => {
-    console.error('Fatal error during startup:', error);
-    process.exit(1);
+    console.error('Startup error (non-fatal):', error);
+    // Intentionally do not exit; bot may still be operational
 });

@@ -4,7 +4,7 @@ services:
     env: docker
     plan: free
     dockerfilePath: packages/backend/Dockerfile
-    healthCheckPath: /healthz
+  healthCheckPath: /
     autoDeploy: true
     envVars:
       - key: PORT
