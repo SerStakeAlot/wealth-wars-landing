@@ -154,18 +154,11 @@ function initializeTelegramBot() {
         return;
     }
     if (!serviceManager || !userIdentityService || !serviceManager.isReady()) {
-        console.log('[Telegram] Lotto services not initialized, bot will have limited functionality');
+        console.log('[Telegram] Lotto services not initialized, bot will start in standalone mode');
     }
     try {
-        const services = serviceManager && typeof serviceManager.isReady === 'function' && serviceManager.isReady()
-            ? serviceManager.getServices()
-            : undefined;
-        const botServices = services && userIdentityService ? {
-            prisma: services.prisma,
-            userIdentity: userIdentityService,
-            lottoServices: services.lottoServices,
-        } : undefined;
-        telegramBot = createTelegramBot(botToken, botServices);
+        // Start bot without depending on ServiceManager; it will use fallback Prisma
+        telegramBot = createTelegramBot(botToken, undefined);
         telegramBot.launch();
         console.log('[Telegram] ✅ Bot initialized and launched');
     }
