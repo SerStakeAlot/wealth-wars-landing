@@ -350,6 +350,7 @@ Transaction is confirming...`);
       .replace(/\s+/g, '') // all whitespace/newlines
       .trim();
     const telegramId = ctx.from.id.toString();
+    try { console.log('[Bot] Text received:', { tg: telegramId, rawLen: raw.length, textLen: text.length, preview: raw.slice(0, 20) }); } catch {}
 
     // Skip commands
     if (text.startsWith('/')) return;
@@ -395,6 +396,7 @@ Transaction is confirming...`);
       if (/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(candidate)) {
         try {
           new PublicKey(candidate);
+          try { console.log('[Bot] Address candidate OK (direct):', candidate.slice(0,4)+'...'+candidate.slice(-4)); } catch {}
 
           const code = Math.random().toString(36).slice(2, 6).toUpperCase();
           const message = `Link Wealth Wars wallet ${code}`;
@@ -431,6 +433,29 @@ Sign in Phantom app and paste signature here.
           console.warn('Wallet address parse failed:', e);
           return ctx.reply('❌ Invalid Solana wallet address. Please paste the base58 address from your wallet.');
         }
+      }
+
+      // Fallback: scan message for any base58-looking substrings and validate
+      const matches = text.match(/[1-9A-HJ-NP-Za-km-z]{32,44}/g) || [];
+      for (const m of matches) {
+        try {
+          new PublicKey(m);
+          try { console.log('[Bot] Address candidate OK (scanned):', m.slice(0,4)+'...'+m.slice(-4)); } catch {}
+          const code = Math.random().toString(36).slice(2, 6).toUpperCase();
+          const message = `Link Wealth Wars wallet ${code}`;
+          pendingWalletLinks.set(telegramId, {
+            userId: `tg_${telegramId}`,
+            message,
+            code,
+            walletAddress: m,
+            timestamp: Date.now(),
+          });
+          const encodedMessage = encodeURIComponent(message);
+          const phantomDeepLink = `phantom://sign-message?message=${encodedMessage}`;
+          const webSignUrl = `${process.env.SIGNING_BASE_URL || 'http://localhost:3000'}/sign.html?message=${encodedMessage}`;
+          ctx.reply(`✅ **Wallet Address Received:** \`${m}\`\n\n**🔐 Sign this message to verify ownership:**\n\`${message}\`\n\n**Option 1 - Mobile:**\nTap: ${phantomDeepLink}\n\n**Option 2 - Browser:**\nVisit: ${webSignUrl}\n\n**Option 3 - Manual:**\nSign in Phantom app and paste signature here.\n\n⏰ Expires in 10 minutes`);
+          return;
+        } catch {}
       }
 
       // Check if looks like signature
@@ -504,7 +529,7 @@ Good luck! 🎰`);
       }
 
       // Default response
-      ctx.reply(`🤖 Send your Solana wallet address to link it. Tips:
+  ctx.reply(`🤖 Send your Solana wallet address to link it. Tips:
 • Paste base58 address (no .sol names yet)
 • Remove spaces/newlines
 • From Phantom: Account → Copy address

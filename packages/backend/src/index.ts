@@ -37,6 +37,27 @@ const prisma = new PrismaClient({
 const cache = new LRUCache<string, any>({ max: 1000, ttl: 30_000 });
 const conn = new Connection(RPC_URL, 'confirmed');
 
+// Ensure critical DB columns exist in production (self-healing)
+async function ensureDbSchema() {
+  try {
+    // Add missing columns if needed (PostgreSQL)
+    await prisma.$executeRawUnsafe(`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "username" TEXT`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "wallet" TEXT UNIQUE`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "telegramId" TEXT UNIQUE`);
+
+    // Backfill username for existing rows where null/empty
+    await prisma.$executeRawUnsafe(`UPDATE "users"
+      SET "username" = COALESCE(NULLIF("username", ''),
+        CASE WHEN "telegramId" IS NOT NULL THEN '@' || "telegramId"
+             ELSE 'user_' || SUBSTR("id", 1, 8) END)
+      WHERE "username" IS NULL OR "username" = ''`);
+
+    console.log('[Database] ✅ Schema checked (users.username ensured)');
+  } catch (err) {
+    console.warn('[Database] ⚠️ Schema check failed (continuing):', (err as any)?.message || err);
+  }
+}
+
 // =============================================================================
 // Legacy Helper Functions (for Telegram Bot compatibility)
 // =============================================================================
@@ -112,6 +133,7 @@ let userIdentityService: UserIdentityService | null = null;
 
 async function initializeLottoServices(): Promise<void> {
   try {
+    await ensureDbSchema();
     // Load authority keypair
     const authoritySecretKey = process.env.AUTHORITY_SECRET_KEY;
     if (!authoritySecretKey) {
