@@ -114,15 +114,15 @@ Required: ${amount} $WEALTH`);
                         some: { userId: user.id }
                     }
                 },
+                select: { id: true },
             });
             if (existingRound) {
                 return ctx.reply('❌ You already have a pending match. Use /cancel to cancel it first.');
             }
             const amountLamports = BigInt(Math.round(amount * 1e9));
-            // Create new round
+            // Create new round (avoid relying on optional columns)
             const round = await prisma.round.create({
                 data: {
-                    potAmount: amountLamports,
                     entries: {
                         create: {
                             userId: user.id,
@@ -132,6 +132,7 @@ Required: ${amount} $WEALTH`);
                         }
                     }
                 },
+                select: { id: true },
             });
             ctx.reply(`@${ctx.from.username || ctx.from.first_name} initiated a bet of ${amount} $WEALTH
 
@@ -169,12 +170,11 @@ Use /join to join this match!
             const round = await prisma.round.findFirst({
                 where: {
                     status: 'OPEN',
-                    entries: {
-                        some: {} // Has at least one entry
-                    }
+                    entries: { some: {} }
                 },
-                include: {
-                    entries: true
+                select: {
+                    id: true,
+                    entries: { select: { id: true, userId: true, wallet: true, amount: true } }
                 },
                 orderBy: { createdAt: 'desc' },
             });
@@ -213,13 +213,7 @@ Required: ${entryAmount} $WEALTH`);
                     ticketCount: 1,
                 },
             });
-            // Update pot amount
-            await prisma.round.update({
-                where: { id: round.id },
-                data: {
-                    potAmount: opponentAmountLamports * 2n,
-                },
-            });
+            // No DB update for pot; compute for messaging only
             // Announce match start
             const totalPot = (entryAmount * 2).toFixed(2);
             await ctx.telegram.sendMessage(ctx.chat.id, `@${ctx.from.username || ctx.from.first_name} 🔒 Locked in ${entryAmount} $WEALTH
