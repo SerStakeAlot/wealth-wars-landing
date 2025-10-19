@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_lang::system_program::{transfer, Transfer};
 
-declare_id!("DfJJWgdxk5qw8ujuyZQ6FmNVz8Xi6cZStXhbsGrK2LQj");
+declare_id!("CRN6xipYR35mQeAzPFvatKYk6WsTfzhbWshrMp2Jn3FR");
 
 const ROUND_SEED: &[u8] = b"round";
 const ENTRY_SEED: &[u8] = b"entry";

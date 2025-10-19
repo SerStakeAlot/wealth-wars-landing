@@ -12,6 +12,10 @@
         "optimize": "vite optimize",
         "preview": "vite preview",
         "generate:og": "node scripts/generate-og.mjs"
+        ,
+        "lotto:deploy:mainnet": "bash scripts/lotto.deploy.sh mainnet",
+        "lotto:deploy:devnet": "bash scripts/lotto.deploy.sh devnet",
+        "lotto:verify": "bash scripts/lotto.verify.sh CRN6xipYR35mQeAzPFvatKYk6WsTfzhbWshrMp2Jn3FR"
     },
     "dependencies": {
         "@github/spark": "^0.39.0",
