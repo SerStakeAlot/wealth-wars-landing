@@ -55,6 +55,7 @@ Send your Solana wallet address, then sign the verification message.`);
             const telegramId = ctx.from.id.toString();
             const user = await prisma.user.findFirst({
                 where: { telegramId },
+                select: { id: true, wallet: true, telegramId: true },
             });
             if (!user || !user.wallet) {
                 return ctx.reply('❌ Please link your wallet first. Send your Solana wallet address.');
@@ -85,11 +86,13 @@ Wallet: ${user.wallet.slice(0, 8)}...${user.wallet.slice(-8)}`);
             const telegramId = ctx.from.id.toString();
             let user = await prisma.user.findFirst({
                 where: { telegramId },
+                select: { id: true, wallet: true, telegramId: true },
             });
             if (!user) {
-                user = await prisma.user.create({
+                const created = await prisma.user.create({
                     data: { id: `tg_${telegramId}`, telegramId },
                 });
+                user = { id: created.id, wallet: created.wallet, telegramId: created.telegramId };
             }
             if (!user.wallet) {
                 return ctx.reply('❌ Please link your wallet first. Send your Solana wallet address.');
@@ -149,11 +152,13 @@ Use /join to join this match!
             const telegramId = ctx.from.id.toString();
             let user = await prisma.user.findFirst({
                 where: { telegramId },
+                select: { id: true, wallet: true, telegramId: true },
             });
             if (!user) {
-                user = await prisma.user.create({
+                const created = await prisma.user.create({
                     data: { id: `tg_${telegramId}`, telegramId },
                 });
+                user = { id: created.id, wallet: created.wallet, telegramId: created.telegramId };
             }
             if (!user.wallet) {
                 return ctx.reply('❌ Please link your wallet first. Send your Solana wallet address.');
