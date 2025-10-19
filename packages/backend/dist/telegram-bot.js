@@ -15,16 +15,16 @@ export function createTelegramBot(token) {
     bot.start((ctx) => {
         ctx.reply(`🎰 Welcome to Wealth Wars Lotto Bot!
 
-**Rules:**
-• Minimum entry: 100 $WEALTH
-• Maximum entry: Unlimited
-• 30 seconds to complete match after opponent joins
+**How it works:**
+• Start a round with /bet <amount>
+• Others join with /join
+• 80% goes to one random winner
+• 20% split among losers (claimable)
 
 **Commands:**
-/bet <amount> - Start a new match (e.g., /bet 100)
-/join - Join the current waiting match
+/bet <amount> - Start a round (e.g., /bet 100)
+/join - Join the current round
 /balance - Check your $WEALTH balance
-/cancel - Cancel your started match
 /help - Show this help
 
 **First, link your wallet:**
@@ -32,21 +32,22 @@ Send your Solana wallet address, then sign the verification message.`);
     });
     // Help command
     bot.help((ctx) => {
-        ctx.reply(`🎰 Wealth Wars Lotto Bot
+        ctx.reply(`🎰 Wealth Wars Lotto Bot Commands:
 
-**Rules:**
-• Minimum entry: 100 $WEALTH
-• Maximum entry: Unlimited
-• 30 seconds to complete match after opponent joins
+/bet <amount> - Start a new round (e.g., /bet 100)
+/join - Join the current round
+/balance - Check your $WEALTH balance
+/help - Show this help
 
-**Commands:**
-• /bet <amount> - Start a new match
-• /join - Join waiting match
-• /balance - Check $WEALTH balance
-• /cancel - Cancel your match
-• /help - This help
-
-Example: /bet 500`);
+**How It Works:**
+1. Someone starts a round with /bet
+2. Others join with /join
+3. When settled: 80% → winner, 20% → losers
+4. Claim your winnings`);
+    });
+    // Version command
+    bot.command('version', (ctx) => {
+        ctx.reply('✅ Bot Version: 2.0 (Updated Oct 19, 2025)\nCommands: /bet <amount>, /join, /balance');
     });
     // Balance command
     bot.command('balance', async (ctx) => {
