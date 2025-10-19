@@ -73,7 +73,7 @@ Wallet: ${user.wallet.slice(0, 8)}...${user.wallet.slice(-8)}`);
     });
     // Bet command
     bot.command('bet', async (ctx) => {
-        const args = ctx.message.text.split(' ');
+    const args = ctx.message.text.split(' ');
         if (args.length < 2) {
             return ctx.reply('❌ Please specify amount: /bet <amount>\nExample: /bet 100');
         }
@@ -84,13 +84,14 @@ Wallet: ${user.wallet.slice(0, 8)}...${user.wallet.slice(-8)}`);
         }
         try {
             const telegramId = ctx.from.id.toString();
+            const username = ctx.from.username ? `@${ctx.from.username}` : (ctx.from.first_name || `user_${telegramId.slice(0, 8)}`);
             let user = await prisma.user.findFirst({
                 where: { telegramId },
                 select: { id: true, wallet: true, telegramId: true },
             });
             if (!user) {
                 const created = await prisma.user.create({
-                    data: { id: `tg_${telegramId}`, telegramId },
+                    data: { id: `tg_${telegramId}`, telegramId, username },
                 });
                 user = { id: created.id, wallet: created.wallet, telegramId: created.telegramId };
             }
@@ -150,13 +151,14 @@ Use /join to join this match!
     bot.command('join', async (ctx) => {
         try {
             const telegramId = ctx.from.id.toString();
+            const username = ctx.from.username ? `@${ctx.from.username}` : (ctx.from.first_name || `user_${telegramId.slice(0, 8)}`);
             let user = await prisma.user.findFirst({
                 where: { telegramId },
                 select: { id: true, wallet: true, telegramId: true },
             });
             if (!user) {
                 const created = await prisma.user.create({
-                    data: { id: `tg_${telegramId}`, telegramId },
+                    data: { id: `tg_${telegramId}`, telegramId, username },
                 });
                 user = { id: created.id, wallet: created.wallet, telegramId: created.telegramId };
             }
@@ -340,6 +342,7 @@ Required: ${entryAmount} $WEALTH`);
             // Check if user already has a wallet linked
             const existingUser = await prisma.user.findFirst({
                 where: { telegramId },
+                select: { id: true, wallet: true },
             });
             // If user already has a wallet, show help
             if (existingUser?.wallet) {
@@ -421,10 +424,11 @@ Required: ${entryAmount} $WEALTH`);
                         return;
                     }
                     // Link the wallet
+                    const username = ctx.from.username ? `@${ctx.from.username}` : (ctx.from.first_name || `user_${telegramId.slice(0, 8)}`);
                     await prisma.user.upsert({
                         where: { telegramId },
                         update: { wallet: pending.walletAddress },
-                        create: { id: `tg_${telegramId}`, telegramId, wallet: pending.walletAddress },
+                        create: { id: `tg_${telegramId}`, telegramId, username, wallet: pending.walletAddress },
                     });
                     // Clean up
                     pendingWalletLinks.delete(telegramId);
