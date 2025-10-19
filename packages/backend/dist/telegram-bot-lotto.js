@@ -61,6 +61,12 @@ Send your Solana wallet address, then sign the verification message.`);
 **Need Help?** Make sure your wallet is linked first!`);
     });
     // =============================================================================
+    // Test Command - Verify bot version
+    // =============================================================================
+    bot.command('version', async (ctx) => {
+        ctx.reply('✅ Bot Version: 2.0 (Updated Oct 19, 2025)\nCommands: /bet <amount>, /join, /balance');
+    });
+    // =============================================================================
     // Balance Command
     // =============================================================================
     bot.command('balance', async (ctx) => {
