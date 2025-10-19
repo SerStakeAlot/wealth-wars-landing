@@ -153,11 +153,13 @@ function initializeTelegramBot() {
         console.log('[Telegram] Bot token not configured, skipping');
         return;
     }
-    if (!serviceManager || !userIdentityService) {
+    if (!serviceManager || !userIdentityService || !serviceManager.isReady()) {
         console.log('[Telegram] Lotto services not initialized, bot will have limited functionality');
     }
     try {
-        const services = serviceManager ? serviceManager.getServices() : undefined;
+        const services = serviceManager && typeof serviceManager.isReady === 'function' && serviceManager.isReady()
+            ? serviceManager.getServices()
+            : undefined;
         const botServices = services && userIdentityService ? {
             prisma: services.prisma,
             userIdentity: userIdentityService,
