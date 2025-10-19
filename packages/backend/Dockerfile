@@ -17,8 +17,5 @@ RUN npx prisma generate --schema=./prisma/schema.prisma
 # Copy pre-built dist files with all subdirectories
 COPY packages/backend/dist/ ./dist/
 
-# Expose port
-EXPOSE 8787
-
 # Start the application
 CMD ["node", "dist/index.js"]
