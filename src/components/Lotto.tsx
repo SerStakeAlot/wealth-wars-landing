@@ -379,6 +379,8 @@ export function Lotto({ onBack }: { onBack: () => void }) {
                 <div className="text-center text-sm text-muted-foreground py-8">Loading...</div>
               ) : currentRound ? (
                 <>
+                  {/** Normalize status casing */}
+                  {(() => { (currentRound as any)._normStatus = String(currentRound.status || '').toUpperCase(); })()}
                   <div className="grid grid-cols-3 gap-3 text-center text-xs sm:text-sm">
                     <div className="rounded-xl border border-border/60 bg-background/60 p-3">
                       <Coins className="mx-auto mb-2 h-5 w-5 text-accent" />
@@ -392,7 +394,7 @@ export function Lotto({ onBack }: { onBack: () => void }) {
                     </div>
                     <div className="rounded-xl border border-border/60 bg-background/60 p-3">
                       <Timer className="mx-auto mb-2 h-5 w-5 text-accent" />
-                      <p className="font-semibold text-foreground">{currentRound.status}</p>
+                      <p className="font-semibold text-foreground">{(currentRound as any)._normStatus === 'OPEN' ? 'OPEN' : (currentRound as any)._normStatus}</p>
                       <p className="text-muted-foreground">Status</p>
                     </div>
                   </div>
@@ -485,12 +487,12 @@ export function Lotto({ onBack }: { onBack: () => void }) {
 
                   <Button
                     onClick={handleJoinRound}
-                    disabled={joining || !currentRound || currentRound.status !== 'open' || !username.trim()}
+                      disabled={joining || !currentRound || (currentRound as any)._normStatus !== 'OPEN' || !username.trim()}
                     className="w-full gap-2"
                   >
                     {joining ? 'Joining...' : (
                       <>
-                        Join for {currentRound ? (currentRound.ticketPriceLamports / 1e9).toFixed(2) : '0.00'} SOL
+                        Join for {currentRound ? (Number(currentRound.ticketPriceLamports) / 1e9).toFixed(2) : '0.00'} SOL
                         <ArrowRight className="h-4 w-4" />
                       </>
                     )}
