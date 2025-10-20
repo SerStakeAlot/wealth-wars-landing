@@ -1,0 +1,191 @@
+/**
+ * API Middleware
+ * 
+ * Request validation, authentication, and error handling.
+ */
+
+import { Request, Response, NextFunction } from 'express';
+import { ZodSchema, z } from 'zod';
+
+// ============================================================================
+// Request Validation Middleware
+// ============================================================================
+
+/**
+ * Validate request body against Zod schema
+ */
+export function validateBody<T extends ZodSchema>(schema: T) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    try {
+      req.body = schema.parse(req.body);
+      next();
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          error: 'Validation error',
+          details: error.errors.map(e => ({
+            field: e.path.join('.'),
+            message: e.message,
+          })),
+        });
+      }
+      next(error);
+    }
+  };
+}
+
+/**
+ * Validate query parameters against Zod schema
+ */
+export function validateQuery<T extends ZodSchema>(schema: T) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    try {
+      req.query = schema.parse(req.query);
+      next();
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid query parameters',
+          details: error.errors.map(e => ({
+            field: e.path.join('.'),
+            message: e.message,
+          })),
+        });
+      }
+      next(error);
+    }
+  };
+}
+
+/**
+ * Validate route parameters against Zod schema
+ */
+export function validateParams<T extends ZodSchema>(schema: T) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    try {
+      req.params = schema.parse(req.params);
+      next();
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid route parameters',
+          details: error.errors.map(e => ({
+            field: e.path.join('.'),
+            message: e.message,
+          })),
+        });
+      }
+      next(error);
+    }
+  };
+}
+
+// ============================================================================
+// Authentication Middleware
+// ============================================================================
+
+/**
+ * Simple admin authentication (Bearer token)
+ * In production, use proper JWT or session-based auth
+ */
+export function requireAdmin(req: Request, res: Response, next: NextFunction) {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({
+      success: false,
+      error: 'Authentication required',
+    });
+  }
+
+  const token = authHeader.substring(7);
+  // Accept either ADMIN_API_TOKEN or ADMIN_API_KEY
+  const adminToken = process.env.ADMIN_API_TOKEN || process.env.ADMIN_API_KEY;
+
+  if (!adminToken) {
+    console.error('[Auth] ADMIN_API_TOKEN or ADMIN_API_KEY not configured');
+    return res.status(500).json({
+      success: false,
+      error: 'Server configuration error',
+    });
+  }
+
+  if (token !== adminToken) {
+    return res.status(403).json({
+      success: false,
+      error: 'Invalid credentials',
+    });
+  }
+
+  next();
+}
+
+// ============================================================================
+// Error Handling Middleware
+// ============================================================================
+
+/**
+ * Global error handler
+ */
+export function errorHandler(
+  error: Error,
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  console.error('[API Error]', error);
+
+  // Don't send error details in production
+  const isDev = process.env.NODE_ENV !== 'production';
+
+  res.status(500).json({
+    success: false,
+    error: 'Internal server error',
+    ...(isDev && { details: error.message, stack: error.stack }),
+  });
+}
+
+/**
+ * Async route handler wrapper (catches promise rejections)
+ */
+export function asyncHandler(
+  fn: (req: Request, res: Response, next: NextFunction) => Promise<any>
+) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    Promise.resolve(fn(req, res, next)).catch(next);
+  };
+}
+
+// ============================================================================
+// Response Helpers
+// ============================================================================
+
+/**
+ * JSON replacer that serializes BigInt values to strings.
+ * This avoids "Do not know how to serialize a BigInt" errors in Express.
+ */
+function bigIntReplacer(_key: string, value: any) {
+  return typeof value === 'bigint' ? value.toString() : value;
+}
+
+/**
+ * Standard success response
+ */
+export function successResponse(res: Response, data: any, status: number = 200) {
+  const payload = { success: true, data };
+  // Manually stringify with a BigInt-safe replacer, then send as JSON
+  const body = JSON.stringify(payload, bigIntReplacer);
+  return res.status(status).type('application/json').send(body);
+}
+
+/**
+ * Standard error response
+ */
+export function errorResponse(res: Response, error: string, status: number = 400) {
+  const payload = { success: false, error };
+  const body = JSON.stringify(payload, bigIntReplacer);
+  return res.status(status).type('application/json').send(body);
+}

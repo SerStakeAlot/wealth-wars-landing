@@ -139,20 +139,25 @@ export function asyncHandler(fn) {
 // Response Helpers
 // ============================================================================
 /**
+ * JSON replacer that serializes BigInt values to strings to avoid
+ * "Do not know how to serialize a BigInt" errors.
+ */
+function bigIntReplacer(_key, value) {
+    return typeof value === 'bigint' ? value.toString() : value;
+}
+/**
  * Standard success response
  */
 export function successResponse(res, data, status = 200) {
-    return res.status(status).json({
-        success: true,
-        data,
-    });
+    const payload = { success: true, data };
+    const body = JSON.stringify(payload, bigIntReplacer);
+    return res.status(status).type('application/json').send(body);
 }
 /**
  * Standard error response
  */
 export function errorResponse(res, error, status = 400) {
-    return res.status(status).json({
-        success: false,
-        error,
-    });
+    const payload = { success: false, error };
+    const body = JSON.stringify(payload, bigIntReplacer);
+    return res.status(status).type('application/json').send(body);
 }

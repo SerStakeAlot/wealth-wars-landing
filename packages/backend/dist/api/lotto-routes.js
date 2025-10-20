@@ -11,6 +11,25 @@ import { CreateRoundSchema, JoinRoundWebSchema, JoinRoundTelegramSchema, ClaimSc
 import { z } from 'zod';
 export function createLottoRoutes(lottoServices, userService) {
     const router = Router();
+    // BigInt-safe deep serializer for API responses
+    const toPlain = (value) => {
+        if (typeof value === 'bigint')
+            return value.toString();
+        if (Array.isArray(value))
+            return value.map(toPlain);
+        if (value && typeof value === 'object') {
+            const out = {};
+            for (const [k, v] of Object.entries(value))
+                out[k] = toPlain(v);
+            return out;
+        }
+        return value;
+    };
+    const sendJson = (res, data, status = 200) => {
+        const payload = { success: true, data: toPlain(data) };
+        const body = JSON.stringify(payload);
+        return res.status(status).type('application/json').send(body);
+    };
     // ==========================================================================
     // User Management
     // ==========================================================================
@@ -21,7 +40,7 @@ export function createLottoRoutes(lottoServices, userService) {
     router.post('/users/web', validateBody(CreateWebUserSchema), asyncHandler(async (req, res) => {
         const { wallet, username } = req.body;
         const user = await userService.createWebUser(wallet, username);
-        return successResponse(res, {
+        return sendJson(res, {
             user: {
                 id: user.id,
                 wallet: user.wallet,
@@ -37,7 +56,7 @@ export function createLottoRoutes(lottoServices, userService) {
     router.post('/users/telegram', validateBody(CreateTelegramUserSchema), asyncHandler(async (req, res) => {
         const { telegramId, username } = req.body;
         const user = await userService.getOrCreateTelegramUser(telegramId, username || `user_${telegramId}`);
-        return successResponse(res, {
+        return sendJson(res, {
             user: {
                 id: user.id,
                 telegramId: user.telegramId,
@@ -56,7 +75,7 @@ export function createLottoRoutes(lottoServices, userService) {
         if (!user) {
             return errorResponse(res, 'User not found', 404);
         }
-        return successResponse(res, { user });
+        return sendJson(res, { user });
     }));
     // ==========================================================================
     // Round Management
@@ -73,7 +92,7 @@ export function createLottoRoutes(lottoServices, userService) {
             durationSlots,
             retainedBps,
         });
-        return successResponse(res, { round }, 201);
+        return sendJson(res, { round }, 201);
     }));
     /**
      * GET /api/lotto/rounds/current
@@ -86,7 +105,7 @@ export function createLottoRoutes(lottoServices, userService) {
         }
         // Get entries for this round
         const entries = await lottoServices.entryProcessor.getRoundEntries(round.id);
-        return successResponse(res, {
+        return sendJson(res, {
             round,
             entries: entries.map(e => ({
                 id: e.id,
@@ -95,7 +114,7 @@ export function createLottoRoutes(lottoServices, userService) {
                 username: e.userId, // Will be enriched with actual username
                 createdAt: e.createdAt,
             })),
-        });
+        }));
     }));
     /**
      * GET /api/lotto/rounds/:id
@@ -109,10 +128,10 @@ export function createLottoRoutes(lottoServices, userService) {
         }
         // Get entries
         const entries = await lottoServices.entryProcessor.getRoundEntries(id);
-        return successResponse(res, {
+        return sendJson(res, {
             round,
             entries,
-        });
+        }));
     }));
     /**
      * POST /api/lotto/rounds/:id/join/web
@@ -129,7 +148,7 @@ export function createLottoRoutes(lottoServices, userService) {
             userId: user.id,
             userWallet: new PublicKey(wallet),
         });
-        return successResponse(res, {
+        return sendJson(res, {
             entry: {
                 id: entry.id,
                 roundId: entry.roundId,
@@ -139,7 +158,7 @@ export function createLottoRoutes(lottoServices, userService) {
                 txSignature: entry.joinTxSignature,
                 createdAt: entry.createdAt,
             },
-        }, 201);
+        }), 201);
     }));
     /**
      * POST /api/lotto/rounds/:id/join/telegram
@@ -161,7 +180,7 @@ export function createLottoRoutes(lottoServices, userService) {
             userId: user.id,
             userWallet: new PublicKey(user.wallet),
         });
-        return successResponse(res, {
+        return sendJson(res, {
             entry: {
                 id: entry.id,
                 roundId: entry.roundId,
@@ -169,7 +188,7 @@ export function createLottoRoutes(lottoServices, userService) {
                 txSignature: entry.joinTxSignature,
                 createdAt: entry.createdAt,
             },
-        }, 201);
+        }), 201);
     }));
     /**
      * POST /api/lotto/rounds/:id/close
@@ -178,7 +197,7 @@ export function createLottoRoutes(lottoServices, userService) {
     router.post('/rounds/:id/close', requireAdmin, validateParams(z.object({ id: z.string().cuid() })), asyncHandler(async (req, res) => {
         const { id } = req.params;
         await lottoServices.settlementService.closeRound(id);
-        return successResponse(res, {
+        return sendJson(res, {
             message: 'Round closed successfully',
             roundId: id,
         });
@@ -190,7 +209,7 @@ export function createLottoRoutes(lottoServices, userService) {
     router.post('/rounds/:id/settle', requireAdmin, validateParams(z.object({ id: z.string().cuid() })), asyncHandler(async (req, res) => {
         const { id } = req.params;
         const result = await lottoServices.settlementService.settleRound({ roundId: id });
-        return successResponse(res, {
+        return sendJson(res, {
             settlement: {
                 roundId: result.roundId,
                 winner: result.winnerWallet,
@@ -239,7 +258,7 @@ export function createLottoRoutes(lottoServices, userService) {
                 userWallet: new PublicKey(wallet),
             });
         }
-        return successResponse(res, {
+        return sendJson(res, {
             claim: {
                 entryId: result.entryId,
                 amount: result.amount.toString(),
@@ -256,7 +275,7 @@ export function createLottoRoutes(lottoServices, userService) {
      * Simple health check for lotto services
      */
     router.get('/health', (req, res) => {
-        return successResponse(res, {
+        return sendJson(res, {
             status: 'healthy',
             service: 'lotto-api',
             timestamp: new Date().toISOString(),

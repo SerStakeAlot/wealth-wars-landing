@@ -65,7 +65,7 @@ export class EntryProcessor {
         const nonce = await this.getNextEntryNonce(onchainRoundId);
         // Derive PDAs
         const roundPda = new PublicKey(dbRound.onchainAddress);
-        const [entryPda] = findEntryPda(params.userWallet, roundPda, nonce, this.program.programId);
+    const [entryPda] = findEntryPda(roundPda, params.userWallet, nonce, this.program.programId);
         const [treasuryVaultPda] = findTreasuryVaultPda(this.authority.publicKey, this.program.programId);
         console.log(`[EntryProcessor] User ${params.userId} joining round ${onchainRoundId} (nonce: ${nonce})`);
         console.log(`[EntryProcessor] Entry PDA: ${entryPda.toBase58()}`);
@@ -83,6 +83,7 @@ export class EntryProcessor {
                 userId: params.userId,
                 wallet: params.userWallet.toBase58(),
                 onchainAddress: entryPda.toBase58(),
+                amount: BigInt(dbRound.ticketPriceLamports.toString()),
                 nonce,
                 joinTxSignature: signature,
                 claimed: false,

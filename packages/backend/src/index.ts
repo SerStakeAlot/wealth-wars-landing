@@ -219,6 +219,21 @@ function initializeTelegramBot(): void {
 
 const app = express();
 
+// Global BigInt-safe JSON responder: monkey-patch res.json to stringify BigInt
+app.use((req, res, next) => {
+  const json = res.json.bind(res);
+  (res as any).json = (body: any) => {
+    try {
+      const replacer = (_k: string, v: any) => (typeof v === 'bigint' ? v.toString() : v);
+      const str = JSON.stringify(body, replacer);
+      return res.type('application/json').send(str);
+    } catch {
+      return json(body);
+    }
+  };
+  next();
+});
+
 // Trust proxy (for Railway, Heroku, etc.)
 app.set('trust proxy', 1);
 
