@@ -32,6 +32,11 @@ export const JoinRoundTelegramSchema = z.object({
     telegramId: z.string(),
     username: z.string().optional(),
 });
+export const JoinRoundSubmitSchema = z.object({
+    wallet: z.string().min(32).max(44),
+    signature: z.string().min(64).max(128), // Transaction signature
+    nonce: z.number().int().min(0),
+});
 export const SettleRoundSchema = z.object({
     roundId: z.string().cuid(),
 });
