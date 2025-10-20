@@ -14,6 +14,7 @@ import {
   buildJoinRoundTx,
   signAndSendTransaction,
 } from '../../solana/index.js';
+import { buildJoinRoundSplTx } from '../../solana/transactions-spl.js';
 
 export interface JoinRoundParams {
   roundId: string;
@@ -117,13 +118,25 @@ export class EntryProcessor {
     // Build and send join transaction
     // Note: In production, the user would sign this transaction
     // For now, we'll use the authority as a placeholder
-    const tx = await buildJoinRoundTx(
-      this.program,
-      params.userWallet,
-      roundPda,
-      { tickets: 1, nonce },
-      this.authority.publicKey
-    );
+    const mode = (process.env.LOTTO_MODE || 'sol').toLowerCase();
+    let tx;
+    if (mode === 'spl') {
+      tx = await buildJoinRoundSplTx(
+        this.program,
+        params.userWallet,
+        roundPda,
+        { nonce },
+        this.authority.publicKey
+      );
+    } else {
+      tx = await buildJoinRoundTx(
+        this.program,
+        params.userWallet,
+        roundPda,
+        { tickets: 1, nonce },
+        this.authority.publicKey
+      );
+    }
 
     const signature = await signAndSendTransaction(
       this.connection,

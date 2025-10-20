@@ -9,6 +9,7 @@ import { PrismaClient } from '@prisma/client';
 import { PublicKey } from '@solana/web3.js';
 import nacl from 'tweetnacl';
 import { getWealth } from './index.js';
+const WEBAPP_URL = process.env.PUBLIC_WEBAPP_URL || process.env.WEBAPP_URL || '';
 const toBigInt = (value) => (typeof value === 'bigint' ? value : BigInt(value));
 const bigintToLamports = (value) => Number(toBigInt(value)) / 1e9;
 const lamportsToWealth = (lamports) => Number(lamports) / 1e9;
@@ -43,22 +44,16 @@ export function createTelegramBot(token, services) {
     // Start & Help Commands
     // =============================================================================
     bot.start(async (ctx) => {
-        await ctx.reply(`🎰 Welcome to Wealth Wars Lotto Bot!
-
-**How it works:**
-• Start a round with /bet <amount>
-• Others join with /join
-• 80% goes to one random winner
-• 20% split among losers (claimable)
-
-**Commands:**
-/bet <amount> - Start a round (e.g., /bet 100)
-/join - Join the current round
-/balance - Check your $WEALTH balance
-/help - Show this help
-
-**First, link your wallet:**
-Send your Solana wallet address, then sign the verification message.`);
+        if (WEBAPP_URL) {
+            await ctx.reply('🚀 Open the Wealth Wars Mini-App to play the lotto:', {
+                reply_markup: {
+                    inline_keyboard: [[{ text: 'Open Mini-App', web_app: { url: WEBAPP_URL } }]],
+                },
+            });
+        }
+        else {
+            await ctx.reply('🚀 Mini-App URL not configured. Please set PUBLIC_WEBAPP_URL.');
+        }
     });
     bot.help(async (ctx) => {
         await ctx.reply(`🎰 Wealth Wars Lotto Bot Commands:
@@ -162,12 +157,32 @@ You have: ${wealth.uiAmount.toFixed(2)} $WEALTH
 Required: ${amount.toFixed(2)} $WEALTH`);
             }
             // Find current round
-            const round = await prisma.round.findFirst({
+            let round = await prisma.round.findFirst({
                 where: { status: 'OPEN' },
                 orderBy: { createdAt: 'desc' },
             });
             if (!round) {
-                return ctx.reply('❌ No active round. Wait for an admin to create one!');
+                try {
+                    const ticketLamports = BigInt(Math.round(amount * 1e9));
+                    const created = await lottoServices.roundManager.createRound({
+                        ticketPriceLamports: ticketLamports,
+                        maxEntries: 0,
+                        durationSlots: 600n,
+                        retainedBps: 0,
+                    });
+                    round = await prisma.round.findUnique({ where: { id: created.id } });
+                    if (!round) {
+                        return ctx.reply('❌ Failed to create a new round. Please try again.');
+                    }
+                    await ctx.reply(`🎰 Created a new round #${created.id}
+
+Ticket price: ${amount.toFixed(2)} $WEALTH
+Use /join to participate!`);
+                }
+                catch (e) {
+                    console.error('Create round error:', e);
+                    return ctx.reply('❌ Could not create a round at the moment. Please try again.');
+                }
             }
             // Check if user already entered
             const existingEntry = await prisma.entry.findFirst({

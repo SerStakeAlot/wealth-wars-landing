@@ -410,11 +410,29 @@ export function createLottoRoutes(
    * GET /api/lotto/health
    * Simple health check for lotto services
    */
-  router.get('/health', (req, res) => {
+  router.get('/health', async (req, res) => {
+    const decimals = process.env.WEALTH_DECIMALS ? parseInt(process.env.WEALTH_DECIMALS, 10) : undefined;
+    let current: any = null;
+    try {
+      const round = await lottoServices.roundManager.getCurrentRound();
+      if (round) {
+        current = { id: round.id, onchainRoundId: round.onchainRoundId.toString(), entryCount: round.entryCount, status: round.status };
+      }
+    } catch {}
     return sendJson(res, {
       status: 'healthy',
       service: 'lotto-api',
       timestamp: new Date().toISOString(),
+      token: {
+        mint: process.env.WEALTH_MINT,
+        symbol: process.env.WEALTH_SYMBOL || 'WEALTH',
+        decimals,
+        entryWealth: parseFloat(process.env.ENTRY_WEALTH || '100'),
+        payoutWinnerBps: parseInt(process.env.PAYOUT_WINNER_BPS || '8000', 10),
+        payoutTreasuryBps: parseInt(process.env.PAYOUT_TREASURY_BPS || '2000', 10),
+        tokenProgram: process.env.WEALTH_TOKEN_PROGRAM,
+      },
+      currentRound: current,
     });
   });
 

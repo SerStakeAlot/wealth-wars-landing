@@ -43,6 +43,10 @@ export class RoundManager {
         console.log(`[RoundManager] Round PDA: ${roundPda.toBase58()}`);
         console.log(`[RoundManager] Treasury PDA: ${treasuryPda.toBase58()}`);
         // Build and send initialize transaction
+        const mode = (process.env.LOTTO_MODE || 'sol').toLowerCase();
+        if (mode === 'spl') {
+            throw new Error('LOTTO_MODE=spl not yet supported in deployed program. Deploy SPL-enabled program and update builders.');
+        }
         const tx = await buildInitializeRoundTx(this.program, this.authority.publicKey, {
             roundId,
             ticketPriceLamports: params.ticketPriceLamports,

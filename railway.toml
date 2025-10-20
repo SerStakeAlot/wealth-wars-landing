@@ -1,9 +1,9 @@
 [build]
-builder = "dockerfile"
-dockerfilePath = "packages/backend/Dockerfile"
+builder = "NIXPACKS"
+buildCommand = "npm --prefix packages/backend ci --omit=dev && npx --prefix packages/backend prisma generate"
 
 [deploy]
-startCommand = "node dist/index.js"
+startCommand = "npm --prefix packages/backend start"
 healthcheckPath = "/"
 healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"

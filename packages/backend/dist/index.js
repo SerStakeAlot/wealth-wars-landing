@@ -15,7 +15,7 @@ import { UserIdentityService } from './services/user-identity.js';
 import { createLottoRoutes } from './api/lotto-routes.js';
 import { errorHandler } from './api/middleware.js';
 import { createTelegramBot as createSimpleBot } from './telegram-bot.js';
-import { createTelegramBot as createLottoBot } from './telegram-bot-lotto.js';
+import { createTelegramBot as createLottoBot, handleTelegramWebhook } from './telegram-bot-lotto.js';
 // =============================================================================
 // Environment Configuration
 // =============================================================================
@@ -23,6 +23,10 @@ const PORT = parseInt(process.env.PORT || '3000', 10);
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const RPC_URL = process.env.SOLANA_RPC_URL || 'https://api.devnet.solana.com';
 const WEALTH_MINT = process.env.WEALTH_MINT || '56vQJqn9UekqgV52ff2DYvTqxK74sHNxAQVZgXeEpump';
+const WEALTH_SYMBOL = process.env.WEALTH_SYMBOL || 'WEALTH';
+const ENTRY_WEALTH = parseFloat(process.env.ENTRY_WEALTH || '100');
+const PAYOUT_WINNER_BPS = parseInt(process.env.PAYOUT_WINNER_BPS || '8000', 10);
+const PAYOUT_TREASURY_BPS = parseInt(process.env.PAYOUT_TREASURY_BPS || '2000', 10);
 // =============================================================================
 // Initialize Database & Cache
 // =============================================================================
@@ -31,6 +35,25 @@ const prisma = new PrismaClient({
 });
 const cache = new LRUCache({ max: 1000, ttl: 30_000 });
 const conn = new Connection(RPC_URL, 'confirmed');
+async function fetchMintDecimals(mintStr) {
+    const mintPk = new PublicKey(mintStr);
+    const info = await conn.getParsedAccountInfo(mintPk);
+    const parsed = info.value?.data;
+    const decimals = parsed?.parsed?.info?.decimals;
+    if (typeof decimals !== 'number') {
+        throw new Error(`Failed to fetch mint decimals for ${mintStr}`);
+    }
+    return decimals;
+}
+async function detectTokenProgram(mintStr) {
+    const mintPk = new PublicKey(mintStr);
+    const acct = await conn.getAccountInfo(mintPk);
+    if (!acct)
+        throw new Error('Mint account not found');
+    const owner = acct.owner.toBase58();
+    process.env.WEALTH_TOKEN_PROGRAM = owner;
+    return owner;
+}
 
 // Ensure critical DB columns exist in production (self-healing)
 async function ensureDbSchema() {
@@ -45,7 +68,19 @@ async function ensureDbSchema() {
                 CASE WHEN "telegramId" IS NOT NULL THEN '@' || "telegramId"
                          ELSE 'user_' || SUBSTR("id", 1, 8) END)
             WHERE "username" IS NULL OR "username" = ''`);
-                console.log('[Database] ✅ Schema checked (users.username ensured)');
+        await prisma.$executeRawUnsafe(`ALTER TABLE "rounds" ADD COLUMN IF NOT EXISTS "mint" TEXT`);
+        await prisma.$executeRawUnsafe(`ALTER TABLE "rounds" ADD COLUMN IF NOT EXISTS "entryAmountBaseUnits" BIGINT`);
+        await prisma.$executeRawUnsafe(`ALTER TABLE "rounds" ADD COLUMN IF NOT EXISTS "potAta" TEXT`);
+        await prisma.$executeRawUnsafe(`ALTER TABLE "rounds" ADD COLUMN IF NOT EXISTS "winnerAmountBaseUnits" BIGINT`);
+        await prisma.$executeRawUnsafe(`ALTER TABLE "rounds" ADD COLUMN IF NOT EXISTS "treasuryAmountBaseUnits" BIGINT`);
+
+        await prisma.$executeRawUnsafe(`ALTER TABLE "entries" ADD COLUMN IF NOT EXISTS "mint" TEXT`);
+        await prisma.$executeRawUnsafe(`ALTER TABLE "entries" ADD COLUMN IF NOT EXISTS "amountBaseUnits" BIGINT`);
+        await prisma.$executeRawUnsafe(`ALTER TABLE "entries" ADD COLUMN IF NOT EXISTS "userAta" TEXT`);
+
+        await prisma.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS entries_round_wallet_unique ON "entries" ("roundId", "wallet")`);
+
+        console.log('[Database] ✅ Schema checked/extended (users + SPL fields)');
         }
         catch (err) {
                 console.warn('[Database] ⚠️ Schema check failed (continuing):', err?.message || err);
@@ -171,6 +206,11 @@ async function initializeLottoServices() {
 let telegramBot = null;
 function initializeTelegramBot() {
     const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    const mode = (process.env.TELEGRAM_MODE || 'polling').toLowerCase();
+    if (mode === 'disabled') {
+        console.log('[Telegram] Bot disabled via TELEGRAM_MODE=disabled');
+        return;
+    }
     if (!botToken || botToken === 'your_bot_token_here') {
         console.log('[Telegram] Bot token not configured, skipping');
         return;
@@ -191,11 +231,26 @@ function initializeTelegramBot() {
             console.log('[Telegram] Lotto services not ready; using standalone bot');
             telegramBot = createSimpleBot(botToken, undefined);
         }
-        // Catch launch errors (e.g., 409 conflict when another instance is running)
-        telegramBot.launch().catch((err) => {
-            console.error('[Telegram] Launch failed:', err?.message || err);
-        });
-        console.log('[Telegram] ✅ Bot initialized and launched');
+        if (mode === 'webhook') {
+            const webhookUrl = process.env.TELEGRAM_WEBHOOK_URL;
+            const secret = process.env.TELEGRAM_WEBHOOK_SECRET;
+            if (webhookUrl) {
+                telegramBot.telegram.setWebhook(webhookUrl, secret ? { secret_token: secret } : undefined)
+                    .then(() => console.log('[Telegram] ✅ Webhook set:', webhookUrl))
+                    .catch((err) => console.error('[Telegram] ❌ Failed to set webhook:', err?.message || err));
+            }
+            else {
+                console.warn('[Telegram] TELEGRAM_MODE=webhook but TELEGRAM_WEBHOOK_URL not set; set it or configure webhook manually.');
+            }
+            console.log('[Telegram] Using webhook mode');
+        }
+        else {
+            // Catch launch errors (e.g., 409 conflict when another instance is running)
+            telegramBot.launch().catch((err) => {
+                console.error('[Telegram] Launch failed:', err?.message || err);
+            });
+            console.log('[Telegram] ✅ Bot initialized and launched (polling)');
+        }
     }
     catch (error) {
         console.error('[Telegram] ❌ Failed to initialize bot:', error);
@@ -240,6 +295,52 @@ app.use(express.static('public'));
 // =============================================================================
 // Health Check Routes
 // =============================================================================
+// Telegram webhook endpoint (only used if TELEGRAM_MODE=webhook)
+app.post('/api/telegram/webhook', async (req, res) => {
+    try {
+        if (!telegramBot) {
+            return res.status(503).json({ success: false, error: 'Telegram bot not initialized' });
+        }
+        const expected = process.env.TELEGRAM_WEBHOOK_SECRET;
+        const header = req.headers['x-telegram-bot-api-secret-token'];
+        if (expected && header !== expected) {
+            return res.status(401).json({ success: false, error: 'Invalid webhook secret' });
+        }
+        await handleTelegramWebhook(req, res, telegramBot);
+    }
+    catch (err) {
+        console.error('[Telegram] Webhook handler error:', err?.message || err);
+        res.status(500).json({ success: false, error: 'Webhook handling failed' });
+    }
+});
+app.get('/api/telegram/health', async (req, res) => {
+    try {
+        const mode = (process.env.TELEGRAM_MODE || 'polling').toLowerCase();
+        const hasToken = !!process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_BOT_TOKEN !== 'your_bot_token_here';
+        let webhookInfo = null;
+        if (mode === 'webhook' && telegramBot) {
+            try {
+                webhookInfo = await telegramBot.telegram.getWebhookInfo();
+            }
+            catch (e) {
+                webhookInfo = { error: e?.message || 'failed to fetch' };
+            }
+        }
+        res.json({
+            success: true,
+            data: {
+                mode,
+                configured: hasToken,
+                webhookUrl: process.env.TELEGRAM_WEBHOOK_URL ? 'set' : 'not set',
+                status: mode === 'webhook' ? (webhookInfo?.url ? 'OK' : 'misconfigured') : (mode === 'disabled' ? 'disabled' : 'polling'),
+                webhookInfo: webhookInfo && webhookInfo.url ? { url: webhookInfo.url, hasCustomCert: webhookInfo.has_custom_certificate, pending: webhookInfo.pending_update_count } : undefined,
+            },
+        });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, error: 'Failed to get Telegram health' });
+    }
+});
 /**
  * GET / (root)
  * Root endpoint for Railway healthcheck
@@ -374,6 +475,18 @@ async function startServer() {
     catch (error) {
         console.warn('[Database] ⚠️ Failed to connect. Continuing in degraded mode (bot and API may be limited).');
     }
+    // Fetch mint decimals and cache; fail if not available
+    try {
+        const decimals = await fetchMintDecimals(WEALTH_MINT);
+        const tokenProgram = await detectTokenProgram(WEALTH_MINT);
+        process.env.WEALTH_DECIMALS = String(decimals);
+        console.log(`[Token] ${WEALTH_SYMBOL} mint ${WEALTH_MINT} decimals: ${decimals} | program: ${tokenProgram}`);
+        console.log(`[Token] Entry amount: ${ENTRY_WEALTH} ${WEALTH_SYMBOL} | Payout: ${PAYOUT_WINNER_BPS / 100}% winner / ${PAYOUT_TREASURY_BPS / 100}% treasury`);
+    }
+    catch (e) {
+        console.error('[Token] ❌ Failed to load mint decimals:', e?.message || e);
+        throw e;
+    }
     // Initialize lotto services (optional)
     try {
         await initializeLottoServices();
@@ -409,6 +522,10 @@ async function startServer() {
         console.log(`  POST /api/lotto/rounds/:id/settle - Settle round (admin)`);
         console.log(`  POST /api/lotto/entries/:id/claim - Claim payout/refund`);
         console.log('='.repeat(60));
+        if (process.env.WEALTH_DECIMALS) {
+            console.log(`[Token] ${WEALTH_SYMBOL} mint ${WEALTH_MINT} decimals: ${process.env.WEALTH_DECIMALS}`);
+            console.log(`[Token] Entry amount: ${ENTRY_WEALTH} ${WEALTH_SYMBOL} | Payout: ${PAYOUT_WINNER_BPS / 100}% winner / ${PAYOUT_TREASURY_BPS / 100}% treasury`);
+        }
     });
 }
 // Graceful shutdown
@@ -437,5 +554,4 @@ process.on('SIGINT', async () => {
 // Start the server
 startServer().catch((error) => {
     console.error('Startup error (non-fatal):', error);
-    // Intentionally do not exit; bot may still be operational
 });

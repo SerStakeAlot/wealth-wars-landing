@@ -63,6 +63,15 @@ In Telegram DM with the bot, run:
 ## Common pitfalls
 
 - Multiple bot instances cause 409 polling conflicts. Ensure only one service runs with the TELEGRAM_BOT_TOKEN.
+- New: Set TELEGRAM_MODE=disabled on any secondary environment (e.g., local dev) to avoid polling conflicts, or switch to webhook mode.
+
+### Telegram Modes
+
+- TELEGRAM_MODE=polling (default): Bot uses long polling. Only one instance can run at a time, otherwise you get 409 Conflict.
+- TELEGRAM_MODE=webhook: Bot receives updates via POST /api/telegram/webhook.
+  - Set TELEGRAM_WEBHOOK_URL to your public endpoint (e.g., https://your-app.up.railway.app/api/telegram/webhook)
+  - Optionally set TELEGRAM_WEBHOOK_SECRET and configure the same secret in Telegram webhook.
+- TELEGRAM_MODE=disabled: Bot is not started (useful for secondary environments).
 - Render cannot reach Railway's internal DB URL. Use a public connection string or Render Postgres.
 - Lotto services are optional. If `AUTHORITY_SECRET_KEY` or IDL is missing, the bot still starts but lotto endpoints are disabled.
 
