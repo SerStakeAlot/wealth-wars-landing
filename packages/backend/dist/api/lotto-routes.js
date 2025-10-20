@@ -6,7 +6,7 @@
  */
 import { Router } from 'express';
 import { PublicKey } from '@solana/web3.js';
-import { buildJoinRoundTx, findEntryPda } from '../../solana/index.js';
+import { buildJoinRoundTx, findEntryPda } from '../solana/index.js';
 import { validateBody, validateParams, requireAdmin, asyncHandler, successResponse, errorResponse, } from './middleware.js';
 import { CreateRoundSchema, JoinRoundWebSchema, JoinRoundTelegramSchema, ClaimSchema, CreateWebUserSchema, CreateTelegramUserSchema, } from './schemas.js';
 import { z } from 'zod';
