@@ -1,0 +1,17 @@
+[phases.setup]
+nixPkgs = ["nodejs_20", "openssl"]
+
+[phases.install]
+cmds = [
+  # Install only backend production deps
+  "npm --prefix packages/backend ci --omit=dev"
+]
+
+[phases.build]
+cmds = [
+  # Generate Prisma client using explicit schema path
+  "npx --prefix packages/backend prisma generate --schema=packages/backend/prisma/schema.prisma"
+]
+
+[phases.start]
+cmd = "npm --prefix packages/backend start"
