@@ -249,13 +249,16 @@ Transaction is confirming... Check /round for updates.`);
         catch (error) {
             console.error('Bet command error:', error);
             const msg = (error?.message || '').toString();
-            if (/User signature required/i.test(msg) && round?.id) {
-                const base = process.env.SIGNING_BASE_URL || 'https://wealthwars.fun';
-                const joinUrl = `${base.replace(/\/$/, '')}/join.html?round=${round.id}`;
-                return ctx.reply(`⚠️ This entry requires your wallet signature.
-
-Please complete via the Mini‑App:
-${joinUrl}`);
+            if (/User signature required/i.test(msg)) {
+                try {
+                    const current = await prisma.round.findFirst({ where: { status: 'OPEN' }, orderBy: { createdAt: 'desc' }, select: { id: true } });
+                    if (current?.id) {
+                        const base = process.env.SIGNING_BASE_URL || 'https://wealthwars.fun';
+                        const joinUrl = `${base.replace(/\/$/, '')}/join.html?round=${current.id}`;
+                        return ctx.reply(`⚠️ This entry requires your wallet signature.\n\nPlease complete via the Mini‑App:\n${joinUrl}`);
+                    }
+                }
+                catch {}
             }
             ctx.reply(`❌ Error entering round: ${msg || 'Unknown error'}`);
         }
@@ -341,13 +344,16 @@ Transaction is confirming...`);
         catch (error) {
             console.error('Join command error:', error);
             const msg = (error?.message || '').toString();
-            if (/User signature required/i.test(msg) && round?.id) {
-                const base = process.env.SIGNING_BASE_URL || 'https://wealthwars.fun';
-                const joinUrl = `${base.replace(/\/$/, '')}/join.html?round=${round.id}`;
-                return ctx.reply(`⚠️ Wallet signature needed.
-
-Open Mini‑App to sign & join:
-${joinUrl}`);
+            if (/User signature required/i.test(msg)) {
+                try {
+                    const current = await prisma.round.findFirst({ where: { status: 'OPEN' }, orderBy: { createdAt: 'desc' }, select: { id: true } });
+                    if (current?.id) {
+                        const base = process.env.SIGNING_BASE_URL || 'https://wealthwars.fun';
+                        const joinUrl = `${base.replace(/\/$/, '')}/join.html?round=${current.id}`;
+                        return ctx.reply(`⚠️ Wallet signature needed.\n\nOpen Mini‑App to sign & join:\n${joinUrl}`);
+                    }
+                }
+                catch {}
             }
             ctx.reply(`❌ Error joining round: ${msg || 'Unknown error'}`);
         }
