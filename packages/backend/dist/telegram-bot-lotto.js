@@ -61,6 +61,7 @@ export function createTelegramBot(token, services) {
     bot.help(async (ctx) => {
         await ctx.reply(`🎰 Wealth Wars Lotto Bot Commands:
 
+/link - Link your wallet (send address, then sign message)
 /bet <amount> - Start a new round (e.g., /bet 100)
 /join - Join the current round
 /balance - Check your $WEALTH balance
@@ -73,6 +74,20 @@ export function createTelegramBot(token, services) {
 4. Claim your winnings
 
 **Need Help?** Make sure your wallet is linked first!`);
+    });
+    // =============================================================================
+    // Link Command - Guide user to link wallet
+    // =============================================================================
+    bot.command('link', async (ctx) => {
+        const base = process.env.SIGNING_BASE_URL || 'https://wealthwars.fun';
+        await ctx.reply(`🔗 Wallet Linking
+
+1) Send your Solana wallet address in this chat (Phantom → Account → Copy address).
+2) I will reply with a short message for you to sign.
+3) Sign it via Phantom or open the signing page:
+${base.replace(/\/$/, '')}/sign.html
+
+After you paste the signature back here, your wallet will be linked.`);
     });
     // =============================================================================
     // Test Command - Verify bot version
