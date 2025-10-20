@@ -264,9 +264,9 @@ Use /join to participate!`);
                 ctx.reply(`✅ **Entry Successful!**
 
 Round: #${round.id}
-Amount: ${amount.toFixed(2)} $WEALTH
+Amount: ${amount.toFixed(3)} SOL
 Tickets: 1
-Pot is now: ${potWealth.toFixed(2)} $WEALTH (${updated?.entryCount || 0} entries)
+Pot is now: ${potWealth.toFixed(3)} SOL (${updated?.entryCount || 0} entries)
 Transaction: \`${confirmedEntry.joinTxSignature}\`
 
 Good luck! 🍀`);
@@ -364,9 +364,9 @@ Required: ${ticketPrice.toFixed(2)} $WEALTH`);
                 ctx.reply(`✅ **Joined Successfully!**
 
 Round: #${round.id}
-Amount: ${ticketPrice.toFixed(2)} $WEALTH
+Amount: ${ticketPrice.toFixed(3)} SOL
 Tickets: 1
-Pot is now: ${potWealth.toFixed(2)} $WEALTH (${updated?.entryCount || 0} entries)
+Pot is now: ${potWealth.toFixed(3)} SOL (${updated?.entryCount || 0} entries)
 Transaction: \`${confirmedEntry.joinTxSignature}\`
 
 Good luck! 🍀`);
