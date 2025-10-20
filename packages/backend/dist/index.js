@@ -200,7 +200,13 @@ async function initializeLottoServices() {
                 throw new Error('Invalid AUTHORITY_SECRET_KEY format');
             }
         }
-        console.log('[Lotto] Authority:', authorityKeypair.publicKey.toBase58());
+        const authorityPub = authorityKeypair.publicKey.toBase58();
+        console.log('[Lotto] Authority:', authorityPub);
+        // Optional safety: ensure we are using the expected authority wallet
+        const expectedAuthority = process.env.AUTHORITY_PUBLIC_KEY;
+        if (expectedAuthority && expectedAuthority !== authorityPub) {
+            throw new Error(`Configured AUTHORITY_SECRET_KEY does not match AUTHORITY_PUBLIC_KEY (${authorityPub} != ${expectedAuthority}). Aborting to avoid using the wrong payer.`);
+        }
         // Initialize service manager
         serviceManager = new ServiceManager({
             authorityKeypair,

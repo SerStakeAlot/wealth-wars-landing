@@ -488,6 +488,7 @@ export function createLottoRoutes(lottoServices, userService) {
             status: 'healthy',
             service: 'lotto-api',
             timestamp: new Date().toISOString(),
+            authority: lottoServices?.roundManager?.authority?.publicKey?.toBase58?.() || undefined,
             token: {
                 mint: process.env.WEALTH_MINT,
                 symbol: process.env.WEALTH_SYMBOL || 'WEALTH',
