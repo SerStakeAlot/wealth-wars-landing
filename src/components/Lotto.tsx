@@ -89,15 +89,14 @@ export function Lotto({ onBack }: { onBack: () => void }) {
 
     async function loadRound() {
       try {
-        const round = await apiLottoCurrentRound();
+        const roundResp = await apiLottoCurrentRound();
         if (!active) return;
-        setCurrentRound(round.data.round);
-        
-        // Check for claimable entries (won entries)
-        if (round.data.entries && profile?.wallet) {
-          const myEntries = round.data.entries.filter((e: any) => 
-            e.wallet?.toLowerCase() === profile.wallet?.toLowerCase()
-          );
+        // roundResp.data.round has potAmount (BigInt serialized as string) and entryCount
+        const round = roundResp.data.round;
+        setCurrentRound(round);
+        // For claimables, keep behavior
+        if (roundResp.data.entries && profile?.wallet) {
+          const myEntries = roundResp.data.entries.filter((e: any) => e.wallet?.toLowerCase() === profile.wallet?.toLowerCase());
           setClaimableEntries(myEntries);
         }
       } catch (error) {
@@ -111,11 +110,17 @@ export function Lotto({ onBack }: { onBack: () => void }) {
 
     if (!loadingProfile) {
       loadRound();
+      const id = setInterval(() => {
+        if (!active) return;
+        loadRound();
+      }, 10000);
+      return () => {
+        active = false;
+        clearInterval(id);
+      };
     }
 
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, [loadingProfile, profile]);
 
   // Check backend health
@@ -166,8 +171,8 @@ export function Lotto({ onBack }: { onBack: () => void }) {
       setJoinSuccess(true);
       
       // Reload round to show updated entry
-      const round = await apiLottoCurrentRound();
-      setCurrentRound(round.data.round);
+  const roundResp = await apiLottoCurrentRound();
+  setCurrentRound(roundResp.data.round);
     } catch (error: any) {
       console.error('Failed to join round', error);
       setJoinError(error.message || 'Failed to join round. Please try again.');
@@ -377,12 +382,12 @@ export function Lotto({ onBack }: { onBack: () => void }) {
                   <div className="grid grid-cols-3 gap-3 text-center text-xs sm:text-sm">
                     <div className="rounded-xl border border-border/60 bg-background/60 p-3">
                       <Coins className="mx-auto mb-2 h-5 w-5 text-accent" />
-                      <p className="font-semibold text-foreground">{(currentRound.ticketPriceLamports / 1e9).toFixed(2)}</p>
-                      <p className="text-muted-foreground">SOL/Entry</p>
+                      <p className="font-semibold text-foreground">{Number(currentRound.ticketPriceLamports) / 1e9 || 0}</p>
+                      <p className="text-muted-foreground">SOL per entry</p>
                     </div>
                     <div className="rounded-xl border border-border/60 bg-background/60 p-3">
                       <Users className="mx-auto mb-2 h-5 w-5 text-accent" />
-                      <p className="font-semibold text-foreground">{currentRound.totalEntries || 0}</p>
+                      <p className="font-semibold text-foreground">{currentRound.entryCount || currentRound.totalEntries || 0}</p>
                       <p className="text-muted-foreground">Entries</p>
                     </div>
                     <div className="rounded-xl border border-border/60 bg-background/60 p-3">
@@ -395,7 +400,10 @@ export function Lotto({ onBack }: { onBack: () => void }) {
                   <div className="rounded-2xl border border-dashed border-accent/40 bg-accent/5 p-4 text-center">
                     <p className="text-sm font-medium text-foreground mb-1">Prize Pool</p>
                     <p className="text-2xl font-bold text-accent">
-                      {((currentRound.ticketPriceLamports * (currentRound.totalEntries || 0)) / 1e9).toFixed(2)} SOL
+                      {(() => {
+                        const pot = Number(currentRound.potAmount ?? 0);
+                        return (pot / 1e9).toFixed(2);
+                      })()} SOL
                     </p>
                   </div>
 

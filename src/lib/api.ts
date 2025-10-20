@@ -49,7 +49,7 @@ export async function apiWealth(address: string): Promise<{ address: string; uiA
 }
 
 export async function apiLottoCurrentRound(): Promise<any> {
-  const r = await fetch(url(`/api/lotto/current-round`), { headers: headers() });
+  const r = await fetch(url(`/api/lotto/rounds/current`), { headers: headers() });
   if (!r.ok) throw new Error(`current-round failed: ${r.status}`);
   return r.json();
 }
