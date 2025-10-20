@@ -96,6 +96,50 @@ After you paste the signature back here, your wallet will be linked.`);
         ctx.reply('✅ Bot Version: 2.0 (Updated Oct 19, 2025)\nCommands: /bet <amount>, /join, /balance');
     });
     // =============================================================================
+    // Close Command (Admin) - Close and settle the current round
+    // =============================================================================
+    bot.command('close', async (ctx) => {
+        try {
+            if (!lottoServices) return ctx.reply('❌ Lotto services not initialized.');
+            const adminList = (process.env.ADMIN_TELEGRAM_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
+            const tgId = ctx.from.id.toString();
+            if (adminList.length > 0 && !adminList.includes(tgId)) {
+                return ctx.reply('🚫 Not authorized to close rounds.');
+            }
+            // Find most recent OPEN round; if none, try most recent CLOSED round for settlement
+            let round = await prisma.round.findFirst({ where: { status: 'OPEN' }, orderBy: { createdAt: 'desc' }, select: { id: true, status: true } });
+            if (!round) {
+                round = await prisma.round.findFirst({ where: { status: 'CLOSED' }, orderBy: { createdAt: 'desc' }, select: { id: true, status: true } });
+            }
+            if (!round) {
+                return ctx.reply('ℹ️ No round to close or settle.');
+            }
+            // Force close if still OPEN (bypass end slot requirement)
+            if (round.status === 'OPEN') {
+                await prisma.round.update({ where: { id: round.id }, data: { status: 'CLOSED', closedAt: new Date() } });
+                await ctx.reply(`🔒 Round #${round.id} closed. Settling...`);
+            }
+            else {
+                await ctx.reply(`⚙️ Settling round #${round.id}...`);
+            }
+            // Settle on-chain and announce winner
+            const result = await lottoServices.settlementService.settleRound({ roundId: round.id });
+            const payoutSol = lamportsToWealth(result.payoutAmount);
+            const winner = result.winnerWallet;
+            const short = `${winner.slice(0, 4)}...${winner.slice(-4)}`;
+            await ctx.reply(`🏁 Round Settled!
+
+Winner: \`${short}\`
+Payout: ${payoutSol.toFixed(3)} SOL
+Tx: \`${result.txSignature}\``);
+        }
+        catch (e) {
+            console.error('Close command error:', e);
+            const msg = (e?.message || '').toString();
+            ctx.reply(`❌ Failed to close/settle round: ${msg}`);
+        }
+    });
+    // =============================================================================
     // Round Command - Show current round status
     // =============================================================================
     bot.command('round', async (ctx) => {
