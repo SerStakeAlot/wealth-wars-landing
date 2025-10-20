@@ -182,3 +182,11 @@ docker run -p 8787:8787 \
 ```
 
 Then set `VITE_BACKEND_API_BASE` in the Pages build env to point to your backend URL.
+
+### Signing page URL
+
+The wallet verification page is served by the backend at `/sign.html`. If your frontend is hosted on a different domain than the backend, set:
+
+- `VITE_SIGNING_BASE_URL=https://your-backend.example.com`
+
+The Lotto UI will link to `${VITE_SIGNING_BASE_URL}/sign.html` (falls back to `window.location.origin/sign.html` when unset).

@@ -427,7 +427,23 @@ export function Lotto({ onBack }: { onBack: () => void }) {
                     </AlertDescription>
                   </Alert>
                   <Button asChild variant="secondary" className="w-full bg-accent text-accent-foreground">
-                    <a href="/sign.html" target="_blank" rel="noopener noreferrer">
+                    {/* Use backend signing page hosted by the API service */}
+                    <a
+                      href={`${(() => {
+                        const envBase = (import.meta as any).env?.VITE_SIGNING_BASE_URL as string | undefined;
+                        if (envBase) return envBase.replace(/\/$/, '');
+                        if (typeof window !== 'undefined') {
+                          // If hosted on wealthwars.fun, default to the Railway backend
+                          if (/\.?(wealthwars\.fun)$/i.test(window.location.host)) {
+                            return 'https://wealth-wars-backend-production.up.railway.app';
+                          }
+                          return window.location.origin;
+                        }
+                        return '';
+                      })()}/sign.html`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
                       Link Wallet & Sign Message
                     </a>
                   </Button>
