@@ -114,7 +114,7 @@ export function createLottoRoutes(lottoServices, userService) {
                 username: e.userId, // Will be enriched with actual username
                 createdAt: e.createdAt,
             })),
-        }));
+        });
     }));
     /**
      * GET /api/lotto/rounds/:id
@@ -131,7 +131,7 @@ export function createLottoRoutes(lottoServices, userService) {
         return sendJson(res, {
             round,
             entries,
-        }));
+        });
     }));
     /**
      * POST /api/lotto/rounds/:id/join/web
