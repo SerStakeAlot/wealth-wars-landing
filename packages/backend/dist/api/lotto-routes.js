@@ -6,9 +6,8 @@
  */
 import { Router } from 'express';
 import { PublicKey } from '@solana/web3.js';
-import { buildJoinRoundTx, findEntryPda } from '../solana/index.js';
-import { validateBody, validateParams, requireAdmin, asyncHandler, successResponse, errorResponse, } from './middleware.js';
-import { CreateRoundSchema, JoinRoundWebSchema, JoinRoundTelegramSchema, ClaimSchema, CreateWebUserSchema, CreateTelegramUserSchema, } from './schemas.js';
+import { validateBody, validateQuery, validateParams, requireAdmin, asyncHandler, errorResponse, } from './middleware.js';
+import { CreateRoundSchema, JoinRoundWebSchema, JoinRoundTelegramSchema, JoinRoundSubmitSchema, ClaimSchema, CreateWebUserSchema, CreateTelegramUserSchema, } from './schemas.js';
 import { z } from 'zod';
 export function createLottoRoutes(lottoServices, userService) {
     const router = Router();
@@ -26,6 +25,7 @@ export function createLottoRoutes(lottoServices, userService) {
         }
         return value;
     };
+    // Local JSON sender that bypasses res.json to avoid BigInt issues
     const sendJson = (res, data, status = 200) => {
         const payload = { success: true, data: toPlain(data) };
         const body = JSON.stringify(payload);
@@ -191,147 +191,124 @@ export function createLottoRoutes(lottoServices, userService) {
             },
         }, 201);
     }));
-
-    // ------------------------------------------------------------------
-    // Client-signed Join Flow (Web/Mini-App)
-    // 1) Prepare: server builds an unsigned transaction for the user to sign
-    // 2) Submit: client submits the resulting signature for recording
-    // ------------------------------------------------------------------
-
     /**
-     * GET /api/lotto/rounds/:id/join/prepare?wallet=<base58>
-     * Prepare an unsigned join transaction for the specified wallet.
+     * GET /api/lotto/rounds/:id/join/prepare
+     * Prepare an unsigned transaction for user to sign
      */
-    router.get('/rounds/:id/join/prepare', validateParams(z.object({ id: z.string().cuid() })), asyncHandler(async (req, res) => {
+    router.get('/rounds/:id/join/prepare', validateParams(z.object({ id: z.string().cuid() })), validateQuery(z.object({ wallet: z.string().min(32).max(44) })), asyncHandler(async (req, res) => {
         const { id: roundId } = req.params;
-        const wallet = (req.query.wallet || '').toString();
-        if (!wallet || !/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(wallet)) {
-            return errorResponse(res, 'Invalid or missing wallet', 400);
+        const { wallet } = req.query;
+        // Get the round from database
+        const round = await lottoServices.roundManager.getRoundById(roundId);
+        if (!round) {
+            return errorResponse(res, 'Round not found', 404);
         }
-
-        // Load round from DB
-        const ep = lottoServices.entryProcessor;
-        const prisma = ep.prisma;
-        const dbRound = await prisma.round.findUnique({ where: { id: roundId } });
-        if (!dbRound) return errorResponse(res, 'Round not found', 404);
-        if (dbRound.status !== 'OPEN') return errorResponse(res, `Round is not open (status: ${dbRound.status})`, 400);
-        if (!dbRound.onchainRoundId || !dbRound.onchainAddress) return errorResponse(res, 'Round is not on-chain', 400);
-
-        const onchainRoundId = BigInt(dbRound.onchainRoundId.toString());
-        const entrant = new PublicKey(wallet);
-        const roundPda = new PublicKey(dbRound.onchainAddress);
-
-        // Compute next nonce
-        const nonce = await ep.getNextEntryNonce(onchainRoundId);
-
-        // Build transaction (unsigned) and set recent blockhash + fee payer
-        const tx = await buildJoinRoundTx(ep.program, entrant, roundPda, { tickets: 1, nonce }, ep.authority.publicKey);
-        const { blockhash } = await lottoServices.roundManager.connection.getLatestBlockhash();
+        if (round.status !== 'OPEN') {
+            return errorResponse(res, `Round is not open (status: ${round.status})`, 400);
+        }
+        if (!round.onchainRoundId || !round.onchainAddress) {
+            return errorResponse(res, 'Round is not on-chain', 400);
+        }
+        // Get or create user by wallet
+        let user = await userService.getUserByWallet(wallet);
+        if (!user) {
+            // Create a temporary user for this wallet
+            user = await userService.createWebUser(wallet, `user_${wallet.slice(0, 8)}`);
+        }
+        // Check if user already has an entry
+        const existingEntry = await lottoServices.entryProcessor.getUserEntry(roundId, user.id);
+        if (existingEntry) {
+            return errorResponse(res, 'User already has an entry in this round', 400);
+        }
+        // Get next entry nonce
+        const entries = await lottoServices.entryProcessor.getRoundEntries(roundId);
+        const nonce = entries.length;
+        // Build unsigned transaction
+        const userWallet = new PublicKey(wallet);
+        const roundPda = new PublicKey(round.onchainAddress);
+        // Import transaction builders
+        const { buildJoinRoundTx } = await import('../../solana/index.js');
+        const program = lottoServices.entryProcessor.program;
+        const authority = lottoServices.entryProcessor.authority;
+        const connection = lottoServices.entryProcessor.connection;
+        const tx = await buildJoinRoundTx(program, userWallet, roundPda, { tickets: 1, nonce }, authority.publicKey);
+        // Set recent blockhash and feePayer for serialization
+        const { blockhash } = await connection.getLatestBlockhash();
         tx.recentBlockhash = blockhash;
-        tx.feePayer = entrant;
-
-        // Serialize without requiring signatures (client will sign)
+        tx.feePayer = userWallet;
+        // Serialize transaction for client
         const serialized = tx.serialize({ requireAllSignatures: false, verifySignatures: false });
         const txBase64 = Buffer.from(serialized).toString('base64');
-
         return sendJson(res, {
             tx: txBase64,
             nonce,
-            round: { id: dbRound.id, onchainRoundId: dbRound.onchainRoundId.toString(), onchainAddress: dbRound.onchainAddress },
+            roundId,
+            wallet,
         });
     }));
-
     /**
      * POST /api/lotto/rounds/:id/join/submit
-     * Body: { wallet: string, signature: string, nonce: number, username?: string }
-     * Confirms the transaction and records the entry in the database.
+     * Submit a signed transaction signature and record the entry
      */
-    router.post('/rounds/:id/join/submit', validateParams(z.object({ id: z.string().cuid() })), validateBody(z.object({
-        wallet: z.string().min(32).max(64),
-        signature: z.string().min(44),
-        nonce: z.number().int().nonnegative(),
-        username: z.string().min(1).max(32).optional(),
-    })), asyncHandler(async (req, res) => {
+    router.post('/rounds/:id/join/submit', validateParams(z.object({ id: z.string().cuid() })), validateBody(JoinRoundSubmitSchema), asyncHandler(async (req, res) => {
         const { id: roundId } = req.params;
-        const { wallet, signature, nonce, username } = req.body;
-
-        const ep = lottoServices.entryProcessor;
-        const prisma = ep.prisma;
-        const connection = lottoServices.roundManager.connection;
-
-        // Verify round
-        const dbRound = await prisma.round.findUnique({ where: { id: roundId } });
-        if (!dbRound) return errorResponse(res, 'Round not found', 404);
-        if (dbRound.status !== 'OPEN') return errorResponse(res, `Round is not open (status: ${dbRound.status})`, 400);
-        if (!dbRound.onchainRoundId || !dbRound.onchainAddress) return errorResponse(res, 'Round is not on-chain', 400);
-
-        // Confirm signature on-chain (best-effort)
-        try {
-            await connection.confirmTransaction(signature, 'confirmed');
+        const { wallet, signature, nonce } = req.body;
+        // Get the round from database
+        const round = await lottoServices.roundManager.getRoundById(roundId);
+        if (!round) {
+            return errorResponse(res, 'Round not found', 404);
         }
-        catch (e) {
-            // Still proceed; network can be flaky, but store anyway
-            console.warn('[JoinSubmit] confirmTransaction failed (continuing):', e?.message || e);
+        if (round.status !== 'OPEN') {
+            return errorResponse(res, `Round is not open (status: ${round.status})`, 400);
         }
-
-        // Upsert user if provided
-        let user = await userService.getUserByWallet?.(wallet);
+        if (!round.onchainRoundId || !round.onchainAddress) {
+            return errorResponse(res, 'Round is not on-chain', 400);
+        }
+        // Get or create user by wallet
+        let user = await userService.getUserByWallet(wallet);
         if (!user) {
-            // Fallback to create web user with provided username or wallet prefix
-            const uname = username || `user_${wallet.slice(0, 6)}`;
-            user = await userService.createWebUser(wallet, uname);
+            user = await userService.createWebUser(wallet, `user_${wallet.slice(0, 8)}`);
         }
-
-        // Derive expected entry PDA for record
-        const entrantPk = new PublicKey(wallet);
-        const roundPda = new PublicKey(dbRound.onchainAddress);
-        const [entryPda] = findEntryPda(roundPda, entrantPk, nonce, ep.program.programId);
-
-        // Create DB entry if not exists
-        const existingEntry = await prisma.entry.findFirst({ where: { roundId, userId: user.id } });
+        // Check if user already has an entry
+        const existingEntry = await lottoServices.entryProcessor.getUserEntry(roundId, user.id);
         if (existingEntry) {
-            return sendJson(res, {
-                entry: {
-                    id: existingEntry.id,
-                    roundId: existingEntry.roundId,
-                    userId: existingEntry.userId,
-                    wallet: existingEntry.wallet,
-                    onchainAddress: existingEntry.onchainAddress,
-                    nonce: existingEntry.nonce,
-                    txSignature: existingEntry.joinTxSignature,
-                    createdAt: existingEntry.createdAt,
-                },
-            });
+            return errorResponse(res, 'User already has an entry in this round', 400);
         }
-
+        // Derive entry PDA
+        const userWallet = new PublicKey(wallet);
+        const roundPda = new PublicKey(round.onchainAddress);
+        const { findEntryPda } = await import('../../solana/index.js');
+        const program = lottoServices.entryProcessor.program;
+        const [entryPda] = findEntryPda(roundPda, userWallet, nonce, program.programId);
+        // Create database record
+        const prisma = lottoServices.entryProcessor.prisma;
         const dbEntry = await prisma.entry.create({
             data: {
                 roundId,
                 userId: user.id,
                 wallet,
                 onchainAddress: entryPda.toBase58(),
-                amount: BigInt(dbRound.ticketPriceLamports.toString()),
+                amount: round.ticketPriceLamports,
                 nonce,
                 joinTxSignature: signature,
                 claimed: false,
                 lastSyncedAt: new Date(),
             },
         });
-
-        // Update round aggregates
+        // Update round entry count and pot amount
         await prisma.round.update({
             where: { id: roundId },
             data: {
                 entryCount: { increment: 1 },
-                potAmount: { increment: BigInt(dbRound.ticketPriceLamports.toString()) },
+                potAmount: {
+                    increment: round.ticketPriceLamports,
+                },
             },
         });
-
         return sendJson(res, {
             entry: {
                 id: dbEntry.id,
                 roundId: dbEntry.roundId,
-                userId: dbEntry.userId,
                 wallet: dbEntry.wallet,
                 onchainAddress: entryPda.toBase58(),
                 nonce,

@@ -95,6 +95,7 @@ export function requireAdmin(req, res, next) {
         });
     }
     const token = authHeader.substring(7);
+    // Accept either ADMIN_API_TOKEN or ADMIN_API_KEY
     const adminToken = process.env.ADMIN_API_TOKEN || process.env.ADMIN_API_KEY;
     if (!adminToken) {
         console.error('[Auth] ADMIN_API_TOKEN or ADMIN_API_KEY not configured');
@@ -139,8 +140,8 @@ export function asyncHandler(fn) {
 // Response Helpers
 // ============================================================================
 /**
- * JSON replacer that serializes BigInt values to strings to avoid
- * "Do not know how to serialize a BigInt" errors.
+ * JSON replacer that serializes BigInt values to strings.
+ * This avoids "Do not know how to serialize a BigInt" errors in Express.
  */
 function bigIntReplacer(_key, value) {
     return typeof value === 'bigint' ? value.toString() : value;
@@ -150,6 +151,7 @@ function bigIntReplacer(_key, value) {
  */
 export function successResponse(res, data, status = 200) {
     const payload = { success: true, data };
+    // Manually stringify with a BigInt-safe replacer, then send as JSON
     const body = JSON.stringify(payload, bigIntReplacer);
     return res.status(status).type('application/json').send(body);
 }
