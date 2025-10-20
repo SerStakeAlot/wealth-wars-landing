@@ -230,7 +230,7 @@ Transaction is confirming... Check /round for updates.`);
         }
         catch (error) {
             console.error('Bet command error:', error);
-            ctx.reply(`❌ Error entering round: ${error.message || 'Unknown error'}`);
+            ctx.reply(`❌ Error entering round: ${error?.message || 'Unknown error'}`);
         }
     });
     // =============================================================================
@@ -313,7 +313,7 @@ Transaction is confirming...`);
         }
         catch (error) {
             console.error('Join command error:', error);
-            ctx.reply(`❌ Error joining round: ${error.message || 'Unknown error'}`);
+            ctx.reply(`❌ Error joining round: ${error?.message || 'Unknown error'}`);
         }
     });
     // =============================================================================

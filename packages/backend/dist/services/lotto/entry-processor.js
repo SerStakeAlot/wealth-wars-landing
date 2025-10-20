@@ -77,8 +77,18 @@ export class EntryProcessor {
             throw new Error('LOTTO_MODE=spl not yet supported in deployed program. Deploy SPL-enabled program and update builders.');
         }
         const tx = await buildJoinRoundTx(this.program, params.userWallet, roundPda, { tickets: 1, nonce }, this.authority.publicKey);
-        const signature = await signAndSendTransaction(this.connection, tx, [this.authority] // In production, user would sign
-        );
+        let signature;
+        try {
+            signature = await signAndSendTransaction(this.connection, tx, [this.authority] // In production, user would sign
+            );
+        }
+        catch (e) {
+            const msg = (e?.message || '').toString();
+            if (/Missing signature for public key/i.test(msg)) {
+                throw new Error('User signature required to join. Please use the web signing flow to authorize your entry.');
+            }
+            throw e;
+        }
         console.log(`[EntryProcessor] Entry created: ${signature}`);
         // Create database record
         const dbEntry = await this.prisma.entry.create({
