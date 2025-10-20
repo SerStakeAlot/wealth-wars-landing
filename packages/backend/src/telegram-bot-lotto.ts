@@ -467,7 +467,7 @@ Transaction is confirming...`);
 
           const encodedMessage = encodeURIComponent(message);
           const phantomDeepLink = `phantom://sign-message?message=${encodedMessage}`;
-          const webSignUrl = `${process.env.SIGNING_BASE_URL || 'http://localhost:3000'}/sign.html?message=${encodedMessage}`;
+          const webSignUrl = `${process.env.SIGNING_BASE_URL || 'https://wealthwars.fun'}/sign.html?message=${encodedMessage}`;
 
           ctx.reply(`✅ **Wallet Address Received:** \`${candidate}\`
 
@@ -508,7 +508,7 @@ Sign in Phantom app and paste signature here.
           });
           const encodedMessage = encodeURIComponent(message);
           const phantomDeepLink = `phantom://sign-message?message=${encodedMessage}`;
-          const webSignUrl = `${process.env.SIGNING_BASE_URL || 'http://localhost:3000'}/sign.html?message=${encodedMessage}`;
+          const webSignUrl = `${process.env.SIGNING_BASE_URL || 'https://wealthwars.fun'}/sign.html?message=${encodedMessage}`;
           ctx.reply(`✅ **Wallet Address Received:** \`${m}\`\n\n**🔐 Sign this message to verify ownership:**\n\`${message}\`\n\n**Option 1 - Mobile:**\nTap: ${phantomDeepLink}\n\n**Option 2 - Browser:**\nVisit: ${webSignUrl}\n\n**Option 3 - Manual:**\nSign in Phantom app and paste signature here.\n\n⏰ Expires in 10 minutes`);
           return;
         } catch {}

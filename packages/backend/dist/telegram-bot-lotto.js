@@ -9,7 +9,7 @@ import { PrismaClient } from '@prisma/client';
 import { PublicKey } from '@solana/web3.js';
 import nacl from 'tweetnacl';
 import { getWealth } from './index.js';
-const WEBAPP_URL = process.env.PUBLIC_WEBAPP_URL || process.env.WEBAPP_URL || '';
+const WEBAPP_URL = process.env.PUBLIC_WEBAPP_URL || process.env.WEBAPP_URL || 'https://wealthwars.fun';
 const toBigInt = (value) => (typeof value === 'bigint' ? value : BigInt(value));
 const bigintToLamports = (value) => Number(toBigInt(value)) / 1e9;
 const lamportsToWealth = (lamports) => Number(lamports) / 1e9;
@@ -406,7 +406,7 @@ Transaction is confirming...`);
                     });
                     const encodedMessage = encodeURIComponent(message);
                     const phantomDeepLink = `phantom://sign-message?message=${encodedMessage}`;
-                    const webSignUrl = `${process.env.SIGNING_BASE_URL || 'http://localhost:3000'}/sign.html?message=${encodedMessage}`;
+                    const webSignUrl = `${process.env.SIGNING_BASE_URL || 'https://wealthwars.fun'}/sign.html?message=${encodedMessage}`;
                     ctx.reply(`✅ **Wallet Address Received:** \`${candidate}\`
 
 **🔐 Sign this message to verify ownership:**
@@ -449,7 +449,7 @@ Sign in Phantom app and paste signature here.
                     });
                     const encodedMessage = encodeURIComponent(message);
                     const phantomDeepLink = `phantom://sign-message?message=${encodedMessage}`;
-                    const webSignUrl = `${process.env.SIGNING_BASE_URL || 'http://localhost:3000'}/sign.html?message=${encodedMessage}`;
+                    const webSignUrl = `${process.env.SIGNING_BASE_URL || 'https://wealthwars.fun'}/sign.html?message=${encodedMessage}`;
                     ctx.reply(`✅ **Wallet Address Received:** \`${m}\`\n\n**🔐 Sign this message to verify ownership:**\n\`${message}\`\n\n**Option 1 - Mobile:**\nTap: ${phantomDeepLink}\n\n**Option 2 - Browser:**\nVisit: ${webSignUrl}\n\n**Option 3 - Manual:**\nSign in Phantom app and paste signature here.\n\n⏰ Expires in 10 minutes`);
                     return;
                 }

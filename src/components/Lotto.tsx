@@ -432,14 +432,8 @@ export function Lotto({ onBack }: { onBack: () => void }) {
                       href={`${(() => {
                         const envBase = (import.meta as any).env?.VITE_SIGNING_BASE_URL as string | undefined;
                         if (envBase) return envBase.replace(/\/$/, '');
-                        if (typeof window !== 'undefined') {
-                          // If hosted on wealthwars.fun, default to the Railway backend
-                          if (/\.?(wealthwars\.fun)$/i.test(window.location.host)) {
-                            return 'https://wealth-wars-backend-production.up.railway.app';
-                          }
-                          return window.location.origin;
-                        }
-                        return '';
+                        // Default to the public site domain for signing page
+                        return 'https://wealthwars.fun';
                       })()}/sign.html`}
                       target="_blank"
                       rel="noopener noreferrer"
