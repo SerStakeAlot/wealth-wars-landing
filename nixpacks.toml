@@ -3,8 +3,8 @@ nixPkgs = ["nodejs_20", "openssl"]
 
 [phases.install]
 cmds = [
-  # Install only backend production deps
-  "npm --prefix packages/backend ci --omit=dev"
+  # Install only backend production deps (no lockfile required)
+  "npm --prefix packages/backend install --omit=dev"
 ]
 
 [phases.build]

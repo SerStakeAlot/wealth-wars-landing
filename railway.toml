@@ -1,6 +1,5 @@
 [build]
 builder = "NIXPACKS"
-buildCommand = "npm --prefix packages/backend ci --omit=dev && npx --prefix packages/backend prisma generate"
 
 [deploy]
 startCommand = "npm --prefix packages/backend start"
