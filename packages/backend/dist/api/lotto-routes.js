@@ -158,7 +158,7 @@ export function createLottoRoutes(lottoServices, userService) {
                 txSignature: entry.joinTxSignature,
                 createdAt: entry.createdAt,
             },
-        }), 201);
+        }, 201);
     }));
     /**
      * POST /api/lotto/rounds/:id/join/telegram
@@ -188,7 +188,7 @@ export function createLottoRoutes(lottoServices, userService) {
                 txSignature: entry.joinTxSignature,
                 createdAt: entry.createdAt,
             },
-        }), 201);
+        }, 201);
     }));
     /**
      * POST /api/lotto/rounds/:id/close
