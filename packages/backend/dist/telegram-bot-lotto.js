@@ -44,16 +44,18 @@ export function createTelegramBot(token, services) {
     // Start & Help Commands
     // =============================================================================
     bot.start(async (ctx) => {
-        if (WEBAPP_URL) {
-            await ctx.reply('🚀 Open the Wealth Wars Mini-App to play the lotto:', {
-                reply_markup: {
-                    inline_keyboard: [[{ text: 'Open Mini-App', web_app: { url: WEBAPP_URL } }]],
-                },
-            });
-        }
-        else {
+        if (!WEBAPP_URL) {
             await ctx.reply('🚀 Mini-App URL not configured. Please set PUBLIC_WEBAPP_URL.');
+            return;
         }
+        const chatType = ctx.chat?.type || 'private';
+        const isPrivate = chatType === 'private';
+        const button = isPrivate
+            ? [{ text: 'Open Mini‑App', web_app: { url: WEBAPP_URL } }]
+            : [{ text: 'Open Mini‑App', url: WEBAPP_URL }];
+        await ctx.reply('🚀 Open the Wealth Wars Mini‑App to play the lotto:', {
+            reply_markup: { inline_keyboard: [button] },
+        });
     });
     bot.help(async (ctx) => {
         await ctx.reply(`🎰 Wealth Wars Lotto Bot Commands:
