@@ -96,6 +96,35 @@ After you paste the signature back here, your wallet will be linked.`);
         ctx.reply('✅ Bot Version: 2.0 (Updated Oct 19, 2025)\nCommands: /bet <amount>, /join, /balance');
     });
     // =============================================================================
+    // Round Command - Show current round status
+    // =============================================================================
+    bot.command('round', async (ctx) => {
+        try {
+            const prismaClient = prisma;
+            const round = await prismaClient.round.findFirst({
+                where: { status: 'OPEN' },
+                orderBy: { createdAt: 'desc' },
+                select: { id: true, entryCount: true, potAmount: true, ticketPriceLamports: true, createdAt: true },
+            });
+            if (!round) {
+                return ctx.reply('ℹ️ No active round. Use /bet <amount> to start one.');
+            }
+            const potLamports = BigInt(round.potAmount?.toString?.() || '0');
+            const ticketLamports = BigInt(round.ticketPriceLamports?.toString?.() || '0');
+            const potWealth = lamportsToWealth(potLamports);
+            const ticketWealth = lamportsToWealth(ticketLamports);
+            await ctx.reply(`🎰 Current Round #${round.id}
+
+Entries: ${round.entryCount || 0}
+Ticket: ${ticketWealth.toFixed(2)} $WEALTH
+Pot: ${potWealth.toFixed(2)} $WEALTH`);
+        }
+        catch (e) {
+            console.error('Round command error:', e);
+            ctx.reply('❌ Failed to fetch current round.');
+        }
+    });
+    // =============================================================================
     // Balance Command
     // =============================================================================
     bot.command('balance', async (ctx) => {
@@ -228,11 +257,16 @@ Use /join to participate!`);
                 where: { id: entry.id },
             });
             if (confirmedEntry?.joinTxSignature) {
+                // Fetch updated pot to include in message
+                const updated = await prisma.round.findUnique({ where: { id: round.id }, select: { potAmount: true, entryCount: true } });
+                const potLamports = BigInt(updated?.potAmount?.toString?.() || '0');
+                const potWealth = lamportsToWealth(potLamports);
                 ctx.reply(`✅ **Entry Successful!**
 
 Round: #${round.id}
 Amount: ${amount.toFixed(2)} $WEALTH
 Tickets: 1
+Pot is now: ${potWealth.toFixed(2)} $WEALTH (${updated?.entryCount || 0} entries)
 Transaction: \`${confirmedEntry.joinTxSignature}\`
 
 Good luck! 🍀`);
@@ -323,11 +357,16 @@ Required: ${ticketPrice.toFixed(2)} $WEALTH`);
                 where: { id: entry.id },
             });
             if (confirmedEntry?.joinTxSignature) {
+                // Fetch updated pot to include in message
+                const updated = await prisma.round.findUnique({ where: { id: round.id }, select: { potAmount: true, entryCount: true } });
+                const potLamports = BigInt(updated?.potAmount?.toString?.() || '0');
+                const potWealth = lamportsToWealth(potLamports);
                 ctx.reply(`✅ **Joined Successfully!**
 
 Round: #${round.id}
 Amount: ${ticketPrice.toFixed(2)} $WEALTH
 Tickets: 1
+Pot is now: ${potWealth.toFixed(2)} $WEALTH (${updated?.entryCount || 0} entries)
 Transaction: \`${confirmedEntry.joinTxSignature}\`
 
 Good luck! 🍀`);
