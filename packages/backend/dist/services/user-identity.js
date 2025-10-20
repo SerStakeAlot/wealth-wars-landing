@@ -34,7 +34,7 @@ export class UserIdentityService {
         // Check if wallet already exists
         const existing = await this.prisma.user.findUnique({
             where: { wallet },
-            select: { id: true, wallet: true, telegramId: true },
+            select: { id: true, wallet: true, telegramId: true, username: true },
         });
         if (existing) {
             // Skip username updates to tolerate DBs missing the column
@@ -42,8 +42,8 @@ export class UserIdentityService {
         }
         // Create new web user (avoid username column)
         const user = await this.prisma.user.create({
-            data: { wallet },
-            select: { id: true, wallet: true, telegramId: true },
+            data: { wallet, username },
+            select: { id: true, wallet: true, telegramId: true, username: true },
         });
         return this.toUserInfo(user, 'web');
     }
@@ -55,13 +55,13 @@ export class UserIdentityService {
         // Check if user exists
         let user = await this.prisma.user.findUnique({
             where: { telegramId },
-            select: { id: true, wallet: true, telegramId: true },
+            select: { id: true, wallet: true, telegramId: true, username: true },
         });
         if (!user) {
             // Create new Telegram user without touching username
             user = await this.prisma.user.create({
-                data: { telegramId },
-                select: { id: true, wallet: true, telegramId: true },
+                data: { telegramId, username },
+                select: { id: true, wallet: true, telegramId: true, username: true },
             });
         }
         else {
@@ -75,7 +75,7 @@ export class UserIdentityService {
     async getUserById(userId) {
         const user = await this.prisma.user.findUnique({
             where: { id: userId },
-            select: { id: true, wallet: true, telegramId: true },
+            select: { id: true, wallet: true, telegramId: true, username: true },
         });
         if (!user)
             return null;
@@ -88,7 +88,7 @@ export class UserIdentityService {
     async getUserByWallet(wallet) {
         const user = await this.prisma.user.findUnique({
             where: { wallet },
-            select: { id: true, wallet: true, telegramId: true },
+            select: { id: true, wallet: true, telegramId: true, username: true },
         });
         return user ? this.toUserInfo(user, 'web') : null;
     }
@@ -98,7 +98,7 @@ export class UserIdentityService {
     async getUserByTelegram(telegramId) {
         const user = await this.prisma.user.findUnique({
             where: { telegramId },
-            select: { id: true, wallet: true, telegramId: true },
+            select: { id: true, wallet: true, telegramId: true, username: true },
         });
         return user ? this.toUserInfo(user, 'telegram') : null;
     }
