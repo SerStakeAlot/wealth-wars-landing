@@ -39,22 +39,39 @@ const cache = new LRUCache({ max: 1000, ttl: 30_000 });
 const conn = new Connection(RPC_URL, 'confirmed');
 async function fetchMintDecimals(mintStr) {
     const mintPk = new PublicKey(mintStr);
-    const info = await conn.getParsedAccountInfo(mintPk);
-    const parsed = info.value?.data;
-    const decimals = parsed?.parsed?.info?.decimals;
-    if (typeof decimals !== 'number') {
-        throw new Error(`Failed to fetch mint decimals for ${mintStr}`);
+    try {
+        const info = await conn.getParsedAccountInfo(mintPk);
+        const parsed = info.value?.data;
+        const decimals = parsed?.parsed?.info?.decimals;
+        if (typeof decimals === 'number') {
+            return decimals;
+        }
+        throw new Error('no parsed decimals');
     }
-    return decimals;
+    catch (e) {
+        // Fallback: use env if provided, otherwise 6
+        const fallback = Number(process.env.WEALTH_DECIMALS || '6');
+        console.warn(`[Token] ⚠️ Could not fetch decimals for ${mintStr}. Falling back to ${fallback}:`, e?.message || e);
+        return fallback;
+    }
 }
 async function detectTokenProgram(mintStr) {
     const mintPk = new PublicKey(mintStr);
-    const acct = await conn.getAccountInfo(mintPk);
-    if (!acct)
-        throw new Error('Mint account not found');
-    const owner = acct.owner.toBase58();
-    process.env.WEALTH_TOKEN_PROGRAM = owner;
-    return owner;
+    try {
+        const acct = await conn.getAccountInfo(mintPk);
+        if (!acct)
+            throw new Error('Mint account not found');
+        const owner = acct.owner.toBase58();
+        process.env.WEALTH_TOKEN_PROGRAM = owner;
+        return owner;
+    }
+    catch (e) {
+        // Fallback to env or SPL Token program id
+        const fallback = process.env.WEALTH_TOKEN_PROGRAM || 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
+        console.warn(`[Token] ⚠️ Could not detect token program. Falling back to ${fallback}:`, e?.message || e);
+        process.env.WEALTH_TOKEN_PROGRAM = fallback;
+        return fallback;
+    }
 }
 
 // Ensure critical DB columns exist in production (self-healing)
@@ -482,16 +499,12 @@ async function startServer() {
         console.warn('[Database] ⚠️ Failed to connect. Continuing in degraded mode (bot and API may be limited).');
     }
     // Fetch mint decimals and cache; fail if not available
-    try {
+    {
         const decimals = await fetchMintDecimals(WEALTH_MINT);
         const tokenProgram = await detectTokenProgram(WEALTH_MINT);
         process.env.WEALTH_DECIMALS = String(decimals);
         console.log(`[Token] ${WEALTH_SYMBOL} mint ${WEALTH_MINT} decimals: ${decimals} | program: ${tokenProgram}`);
         console.log(`[Token] Entry amount: ${ENTRY_WEALTH} ${WEALTH_SYMBOL} | Payout: ${PAYOUT_WINNER_BPS / 100}% winner / ${PAYOUT_TREASURY_BPS / 100}% treasury`);
-    }
-    catch (e) {
-        console.error('[Token] ❌ Failed to load mint decimals:', e?.message || e);
-        throw e;
     }
     // Initialize lotto services (optional)
     try {
