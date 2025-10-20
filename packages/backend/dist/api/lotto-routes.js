@@ -255,43 +255,52 @@ export function createLottoRoutes(lottoServices, userService) {
         const { id: roundId } = req.params;
         const { wallet, signature, nonce, username } = req.body;
 
-        const ep = lottoServices.entryProcessor;
-        const prisma = ep.prisma;
-        const connection = lottoServices.roundManager.connection;
-
-        // Verify round
-        const dbRound = await prisma.round.findUnique({ where: { id: roundId } });
-        if (!dbRound) return errorResponse(res, 'Round not found', 404);
-        if (dbRound.status !== 'OPEN') return errorResponse(res, `Round is not open (status: ${dbRound.status})`, 400);
-        if (!dbRound.onchainRoundId || !dbRound.onchainAddress) return errorResponse(res, 'Round is not on-chain', 400);
-
-        // Confirm signature on-chain (best-effort)
         try {
-            await connection.confirmTransaction(signature, 'confirmed');
-        }
-        catch (e) {
-            // Still proceed; network can be flaky, but store anyway
-            console.warn('[JoinSubmit] confirmTransaction failed (continuing):', e?.message || e);
-        }
+            const ep = lottoServices.entryProcessor;
+            const prisma = ep.prisma;
+            const connection = lottoServices.roundManager.connection;
 
-        // Upsert user if provided
-        let user = await userService.getUserByWallet?.(wallet);
-        if (!user) {
-            // Fallback to create web user with provided username or wallet prefix
-            const uname = username || `user_${wallet.slice(0, 6)}`;
-            user = await userService.createWebUser(wallet, uname);
-        }
+            // Validate wallet format early
+            try {
+                new PublicKey(wallet);
+            }
+            catch {
+                return errorResponse(res, 'Invalid wallet address', 400);
+            }
 
-        // Derive expected entry PDA for record
-        const entrantPk = new PublicKey(wallet);
-        const roundPda = new PublicKey(dbRound.onchainAddress);
-        const [entryPda] = findEntryPda(roundPda, entrantPk, nonce, ep.program.programId);
+            // Verify round
+            const dbRound = await prisma.round.findUnique({ where: { id: roundId } });
+            if (!dbRound)
+                return errorResponse(res, 'Round not found', 404);
+            if (dbRound.status !== 'OPEN')
+                return errorResponse(res, `Round is not open (status: ${dbRound.status})`, 400);
+            if (!dbRound.onchainRoundId || !dbRound.onchainAddress)
+                return errorResponse(res, 'Round is not on-chain', 400);
 
-        // Create DB entry if not exists
-        const existingEntry = await prisma.entry.findFirst({ where: { roundId, userId: user.id } });
-        if (existingEntry) {
-            return sendJson(res, {
-                entry: {
+            // Confirm signature on-chain (best-effort)
+            try {
+                await connection.confirmTransaction(signature, 'confirmed');
+            }
+            catch (e) {
+                console.warn('[JoinSubmit] confirmTransaction failed (continuing):', e?.message || e);
+            }
+
+            // Upsert user if provided
+            let user = await userService.getUserByWallet?.(wallet);
+            if (!user) {
+                const uname = username || `user_${wallet.slice(0, 6)}`;
+                user = await userService.createWebUser(wallet, uname);
+            }
+
+            // Derive expected entry PDA for record
+            const entrantPk = new PublicKey(wallet);
+            const roundPda = new PublicKey(dbRound.onchainAddress);
+            const [entryPda] = findEntryPda(roundPda, entrantPk, nonce, ep.program.programId);
+
+            // Create DB entry if not exists (by user)
+            const existingEntry = await prisma.entry.findFirst({ where: { roundId, userId: user.id } });
+            if (existingEntry) {
+                return sendJson(res, { entry: {
                     id: existingEntry.id,
                     roundId: existingEntry.roundId,
                     userId: existingEntry.userId,
@@ -300,35 +309,72 @@ export function createLottoRoutes(lottoServices, userService) {
                     nonce: existingEntry.nonce,
                     txSignature: existingEntry.joinTxSignature,
                     createdAt: existingEntry.createdAt,
-                },
-            });
-        }
+                } });
+            }
 
-        const dbEntry = await prisma.entry.create({
-            data: {
-                roundId,
-                userId: user.id,
-                wallet,
-                onchainAddress: entryPda.toBase58(),
-                amount: BigInt(dbRound.ticketPriceLamports.toString()),
-                nonce,
-                joinTxSignature: signature,
-                claimed: false,
-                lastSyncedAt: new Date(),
-            },
-        });
+            // Amount safety: tolerate legacy rounds missing ticketPriceLamports
+            const amountLamports = (() => {
+                try {
+                    const v = dbRound.ticketPriceLamports;
+                    if (typeof v === 'bigint') return v;
+                    if (v != null) return BigInt(v.toString());
+                    return 0n;
+                } catch { return 0n; }
+            })();
 
-        // Update round aggregates
-        await prisma.round.update({
-            where: { id: roundId },
-            data: {
-                entryCount: { increment: 1 },
-                potAmount: { increment: BigInt(dbRound.ticketPriceLamports.toString()) },
-            },
-        });
+            let dbEntry;
+            try {
+                dbEntry = await prisma.entry.create({
+                    data: {
+                        roundId,
+                        userId: user.id,
+                        wallet,
+                        onchainAddress: entryPda.toBase58(),
+                        amount: amountLamports,
+                        nonce,
+                        joinTxSignature: signature,
+                        claimed: false,
+                        lastSyncedAt: new Date(),
+                    },
+                });
+            }
+            catch (e) {
+                const code = e?.code || '';
+                if (code === 'P2002' || /unique constraint/i.test(String(e?.message || ''))) {
+                    // Unique violation (roundId, wallet) — fetch existing and return
+                    const existing = await prisma.entry.findFirst({ where: { roundId, wallet } });
+                    if (existing) {
+                        return sendJson(res, { entry: {
+                            id: existing.id,
+                            roundId: existing.roundId,
+                            userId: existing.userId,
+                            wallet: existing.wallet,
+                            onchainAddress: existing.onchainAddress,
+                            nonce: existing.nonce,
+                            txSignature: existing.joinTxSignature,
+                            createdAt: existing.createdAt,
+                        } });
+                    }
+                }
+                console.error('[JoinSubmit] entry.create failed:', e?.message || e);
+                throw e;
+            }
 
-        return sendJson(res, {
-            entry: {
+            // Update round aggregates
+            try {
+                await prisma.round.update({
+                    where: { id: roundId },
+                    data: {
+                        entryCount: { increment: 1 },
+                        potAmount: { increment: amountLamports },
+                    },
+                });
+            }
+            catch (e) {
+                console.warn('[JoinSubmit] round.update aggregate failed (continuing):', e?.message || e);
+            }
+
+            return sendJson(res, { entry: {
                 id: dbEntry.id,
                 roundId: dbEntry.roundId,
                 userId: dbEntry.userId,
@@ -337,8 +383,12 @@ export function createLottoRoutes(lottoServices, userService) {
                 nonce,
                 txSignature: signature,
                 createdAt: dbEntry.createdAt,
-            },
-        }, 201);
+            } }, 201);
+        }
+        catch (err) {
+            console.error('[JoinSubmit] error:', err?.message || err);
+            return errorResponse(res, 'Join submit failed', 500);
+        }
     }));
     /**
      * POST /api/lotto/rounds/:id/close
