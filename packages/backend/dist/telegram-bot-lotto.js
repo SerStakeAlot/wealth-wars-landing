@@ -9,7 +9,8 @@ import { PrismaClient } from '@prisma/client';
 import { PublicKey } from '@solana/web3.js';
 import nacl from 'tweetnacl';
 import { getWealth } from './index.js';
-const WEBAPP_URL = process.env.PUBLIC_WEBAPP_URL || process.env.WEBAPP_URL || 'https://wealthwars.fun';
+const RAW_WEBAPP_URL = process.env.PUBLIC_WEBAPP_URL || process.env.WEBAPP_URL || 'https://wealthwars.fun';
+const WEBAPP_URL = /\.railway\.internal\b/i.test(RAW_WEBAPP_URL) ? 'https://wealthwars.fun' : RAW_WEBAPP_URL;
 const toBigInt = (value) => (typeof value === 'bigint' ? value : BigInt(value));
 const bigintToLamports = (value) => Number(toBigInt(value)) / 1e9;
 const lamportsToWealth = (lamports) => Number(lamports) / 1e9;
@@ -232,7 +233,16 @@ Transaction is confirming... Check /round for updates.`);
         }
         catch (error) {
             console.error('Bet command error:', error);
-            ctx.reply(`❌ Error entering round: ${error?.message || 'Unknown error'}`);
+            const msg = (error?.message || '').toString();
+            if (/User signature required/i.test(msg) && round?.id) {
+                const base = process.env.SIGNING_BASE_URL || 'https://wealthwars.fun';
+                const joinUrl = `${base.replace(/\/$/, '')}/join.html?round=${round.id}`;
+                return ctx.reply(`⚠️ This entry requires your wallet signature.
+
+Please complete via the Mini‑App:
+${joinUrl}`);
+            }
+            ctx.reply(`❌ Error entering round: ${msg || 'Unknown error'}`);
         }
     });
     // =============================================================================
@@ -315,7 +325,16 @@ Transaction is confirming...`);
         }
         catch (error) {
             console.error('Join command error:', error);
-            ctx.reply(`❌ Error joining round: ${error?.message || 'Unknown error'}`);
+            const msg = (error?.message || '').toString();
+            if (/User signature required/i.test(msg) && round?.id) {
+                const base = process.env.SIGNING_BASE_URL || 'https://wealthwars.fun';
+                const joinUrl = `${base.replace(/\/$/, '')}/join.html?round=${round.id}`;
+                return ctx.reply(`⚠️ Wallet signature needed.
+
+Open Mini‑App to sign & join:
+${joinUrl}`);
+            }
+            ctx.reply(`❌ Error joining round: ${msg || 'Unknown error'}`);
         }
     });
     // =============================================================================

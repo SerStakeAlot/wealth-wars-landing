@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Join Round - Wealth Wars</title>
+  <style>
+    body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; padding: 24px; background: #0b1020; color: #e2e8f0; display: grid; place-items: center; min-height: 100vh; }
+    .card { width: min(560px,100%); background: rgba(15,23,42,.8); border: 1px solid rgba(148,163,184,.25); border-radius: 16px; padding: 24px; box-shadow: 0 24px 64px rgba(0,0,0,.35); }
+    h1 { margin: 0 0 8px; font-size: 22px; }
+    p { margin: 0 0 8px; color: #94a3b8; }
+    pre { padding: 12px; border-radius: 12px; background: rgba(2,6,23,.7); border: 1px solid rgba(148,163,184,.25); overflow-x: auto; }
+    button { appearance: none; border: none; border-radius: 999px; padding: 12px 16px; background: linear-gradient(135deg, #22d3ee, #a855f7); color: #0f172a; font-weight: 700; letter-spacing: .04em; cursor: pointer; }
+    .row { display: flex; gap: 8px; align-items: center; }
+    .muted { color: #94a3b8; font-size: 14px; }
+    .alert { margin-top: 12px; padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(148,163,184,.3); background: rgba(2, 6, 23, .6); font-size: 14px; }
+    .success { border-color: rgba(16,185,129,.45); color: #bbf7d0; }
+    .error { border-color: rgba(248,113,113,.45); color: #fecaca; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>Join Round</h1>
+    <p class="muted">Connect Phantom and sign the entry transaction to join the current round.</p>
+
+    <div id="state" class="alert" hidden></div>
+
+    <div class="section">
+      <p><strong>Round:</strong> <span id="roundId">…</span></p>
+      <p><strong>Wallet:</strong> <span id="wallet">…</span></p>
+      <p><strong>Ticket Price (lamports):</strong> <span id="price">…</span></p>
+    </div>
+
+    <div class="row" style="margin-top: 12px; gap: 12px;">
+      <button id="connect">Connect Phantom</button>
+      <button id="sign" disabled>Sign & Send</button>
+    </div>
+
+    <div class="section" style="margin-top: 16px;">
+      <div class="muted">Signature</div>
+      <pre id="sig">—</pre>
+    </div>
+  </main>
+
+  <script>
+    const qs = new URLSearchParams(location.search);
+  const roundId = qs.get('round');
+  const apiBase = (qs.get('api') || '').replace(/\/$/, '') || (location.hostname.endsWith('wealthwars.fun') ? 'https://wealth-wars-backend-production.up.railway.app' : location.origin);
+    const ui = {
+      state: document.getElementById('state'),
+      roundId: document.getElementById('roundId'),
+      wallet: document.getElementById('wallet'),
+      price: document.getElementById('price'),
+      connect: document.getElementById('connect'),
+      sign: document.getElementById('sign'),
+      sig: document.getElementById('sig'),
+    };
+
+    const show = (node, text, type) => { node.textContent = text; node.className = 'alert ' + (type||''); node.hidden = false; };
+
+    let wallet = null;
+    let prepared = null;
+
+    ui.roundId.textContent = roundId || 'unknown';
+
+    async function prepare() {
+      if (!wallet) return show(ui.state, 'Connect your wallet first', 'error');
+  const url = `${apiBase}/api/lotto/rounds/${roundId}/join/prepare?wallet=${wallet}`;
+      const r = await fetch(url);
+      if (!r.ok) { const t = await r.text(); throw new Error(`prepare failed: ${r.status}: ${t}`); }
+      const j = await r.json();
+      prepared = j.data;
+      ui.price.textContent = '—';
+      show(ui.state, 'Transaction prepared. Click Sign & Send.', 'success');
+      ui.sign.disabled = false;
+    }
+
+    async function signAndSend() {
+      if (!window.solana || !window.solana.isPhantom) return show(ui.state, 'Phantom not detected', 'error');
+      if (!prepared) return show(ui.state, 'No prepared transaction', 'error');
+
+      const txBytes = Uint8Array.from(atob(prepared.tx), c => c.charCodeAt(0));
+      const tx = (await import('https://esm.sh/@solana/web3.js@1.98.4')).Transaction.from(txBytes);
+
+      await window.solana.connect({ onlyIfTrusted: false });
+      const { signature } = await window.solana.signAndSendTransaction(tx);
+      ui.sig.textContent = signature;
+
+      // notify backend to record entry
+  const r = await fetch(`${apiBase}/api/lotto/rounds/${roundId}/join/submit`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wallet, signature, nonce: prepared.nonce })
+      });
+      if (!r.ok) { const t = await r.text(); throw new Error(`submit failed: ${r.status}: ${t}`); }
+      show(ui.state, 'Entry recorded. Good luck!', 'success');
+    }
+
+    ui.connect.onclick = async () => {
+      try {
+        if (!window.solana || !window.solana.isPhantom) return show(ui.state, 'Phantom not detected', 'error');
+        await window.solana.connect({ onlyIfTrusted: false });
+        wallet = window.solana.publicKey.toString();
+        ui.wallet.textContent = wallet;
+        await prepare();
+      } catch (e) { show(ui.state, e.message || String(e), 'error'); }
+    };
+
+    ui.sign.onclick = async () => {
+      try { await signAndSend(); } catch (e) { show(ui.state, e.message || String(e), 'error'); }
+    };
+  </script>
+</body>
+</html>
