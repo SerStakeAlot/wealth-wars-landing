@@ -201,9 +201,7 @@ Use /join to participate!`);
             const entry = await lottoServices.entryProcessor.joinRound({
                 roundId: round.id,
                 userId: user.id,
-                wallet: user.wallet,
-                amount: amountLamports,
-                tickets: 1, // Each entry gets 1 ticket for now
+                userWallet: new PublicKey(user.wallet),
             });
             // Wait a bit for transaction confirmation
             await new Promise(resolve => setTimeout(resolve, 2000));
@@ -288,9 +286,7 @@ Required: ${ticketPrice.toFixed(2)} $WEALTH`);
             const entry = await lottoServices.entryProcessor.joinRound({
                 roundId: round.id,
                 userId: user.id,
-                wallet: user.wallet,
-                amount: BigInt(round.ticketPriceLamports.toString()),
-                tickets: 1,
+                userWallet: new PublicKey(user.wallet),
             });
             await new Promise(resolve => setTimeout(resolve, 2000));
             const confirmedEntry = await prisma.entry.findUnique({

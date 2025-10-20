@@ -4,6 +4,8 @@
  * This replaces the main index.ts with integrated lotto functionality.
  */
 import express from 'express';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import { Connection, PublicKey, Keypair } from '@solana/web3.js';
@@ -291,7 +293,11 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 // Serve static files
+// Serve root-level public (if present)
 app.use(express.static('public'));
+// Also serve backend's own public folder (for /sign.html)
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+app.use(express.static(path.join(__dirname, '../public')));
 // =============================================================================
 // Health Check Routes
 // =============================================================================
