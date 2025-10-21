@@ -5,6 +5,19 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Wealth Wars Wallet Verification</title>
+  
+  <!-- Polyfills for Solana wallet connection -->
+  <script src="https://unpkg.com/buffer@6.0.3/index.js"></script>
+  <script>
+    // Set up global polyfills needed for Solana wallets
+    if (typeof global === 'undefined') {
+      window.global = window;
+    }
+    if (typeof Buffer === 'undefined') {
+      window.Buffer = buffer.Buffer;
+    }
+  </script>
+  
   <style>
     :root {
       color-scheme: dark light;
@@ -205,28 +218,76 @@
     }
 
     signButton.addEventListener("click", async () => {
-      if (!window.solana || !window.solana.isPhantom) {
-        showAlert(phantomAlert, "Phantom wallet not detected. Use the Phantom browser extension or mobile in-app browser.", "error");
+      console.log("Sign button clicked");
+      
+      // Check if we're in a mobile browser or app
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      console.log("Is mobile:", isMobile);
+      
+      if (!window.solana) {
+        const errorMsg = isMobile 
+          ? "Open this link in the Phantom app browser, or install Phantom wallet first."
+          : "Phantom wallet not detected. Please install the Phantom browser extension first.";
+        showAlert(phantomAlert, errorMsg, "error");
+        return;
+      }
+
+      if (!window.solana.isPhantom) {
+        showAlert(phantomAlert, "Please use Phantom wallet for signing.", "error");
         return;
       }
 
       try {
         signButton.disabled = true;
-        signButton.textContent = "Awaiting Phantom...";
+        signButton.textContent = "Connecting...";
+        
+        console.log("Attempting to connect to Phantom...");
+        
+        // Try to connect to the wallet
+        const connectResult = await window.solana.connect({ onlyIfTrusted: false });
+        console.log("Connection result:", connectResult);
+        
+        if (!connectResult || !connectResult.publicKey) {
+          throw new Error("Failed to connect to wallet - no public key received");
+        }
+
+        signButton.textContent = "Awaiting signature...";
+        console.log("Connected to wallet:", connectResult.publicKey.toString());
 
         const encoder = new TextEncoder();
         const messageBytes = encoder.encode(decodedMessage);
+        console.log("Message to sign:", decodedMessage);
+        console.log("Message bytes length:", messageBytes.length);
 
-        await window.solana.connect({ onlyIfTrusted: false });
-        const { signature } = await window.solana.signMessage(messageBytes, "utf8");
-        const base64Signature = toBase64(signature);
+        const signResult = await window.solana.signMessage(messageBytes, "utf8");
+        console.log("Sign result:", signResult);
+        
+        if (!signResult || !signResult.signature) {
+          throw new Error("No signature received from wallet");
+        }
+
+        const base64Signature = toBase64(signResult.signature);
+        console.log("Base64 signature:", base64Signature);
 
         signatureBox.textContent = base64Signature;
         copySignatureBtn.disabled = false;
-        showAlert(signatureAlert, "Signature ready. Copy and send it to the bot.", "success");
+        showAlert(signatureAlert, "Signature ready! Copy and send it to the Telegram bot.", "success");
+        
       } catch (error) {
-        console.error("Signing error", error);
-        showAlert(phantomAlert, error?.message || "Signing was cancelled or failed.", "error");
+        console.error("Signing error details:", error);
+        
+        let errorMessage = "Signing failed.";
+        if (error?.message) {
+          if (error.message.includes("User rejected")) {
+            errorMessage = "Signing was cancelled by user.";
+          } else if (error.message.includes("connect")) {
+            errorMessage = "Failed to connect to wallet. Try refreshing and reconnecting.";
+          } else {
+            errorMessage = `Error: ${error.message}`;
+          }
+        }
+        
+        showAlert(phantomAlert, errorMessage, "error");
       } finally {
         signButton.disabled = false;
         signButton.textContent = "Sign with Phantom";

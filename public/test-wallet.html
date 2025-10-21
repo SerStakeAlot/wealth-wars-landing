@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Wallet Connection Test</title>
+    <!-- Add the same polyfills as sign.html -->
+    <script src="https://unpkg.com/buffer@6.0.3/index.js"></script>
+    <script>
+        if (typeof global === 'undefined') {
+            window.global = window;
+        }
+        if (typeof Buffer === 'undefined') {
+            window.Buffer = buffer.Buffer;
+        }
+    </script>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #1a1a1a; color: white; }
+        button { padding: 10px 20px; margin: 10px; background: #4CAF50; color: white; border: none; cursor: pointer; }
+        .error { color: #ff6b6b; }
+        .success { color: #51cf66; }
+        .info { color: #339af0; }
+    </style>
+</head>
+<body>
+    <h1>Wallet Connection Test</h1>
+    <div id="status" class="info">Checking wallet availability...</div>
+    <button id="connectBtn" onclick="connectWallet()">Connect Phantom</button>
+    <button id="signBtn" onclick="signMessage()" disabled>Sign Test Message</button>
+    
+    <div id="output"></div>
+
+    <script>
+        function log(message, type = 'info') {
+            const output = document.getElementById('output');
+            const div = document.createElement('div');
+            div.className = type;
+            div.textContent = new Date().toLocaleTimeString() + ': ' + message;
+            output.appendChild(div);
+            console.log(message);
+        }
+
+        function updateStatus(message, type = 'info') {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = type;
+        }
+
+        // Check wallet availability on page load
+        window.addEventListener('load', () => {
+            log('Page loaded, checking wallet...');
+            
+            if (typeof window.solana !== 'undefined') {
+                if (window.solana.isPhantom) {
+                    updateStatus('Phantom wallet detected!', 'success');
+                    log('Phantom wallet is available');
+                } else {
+                    updateStatus('Solana wallet detected, but not Phantom', 'error');
+                    log('Non-Phantom Solana wallet detected');
+                }
+            } else {
+                updateStatus('No Solana wallet detected', 'error');
+                log('No window.solana object found');
+            }
+        });
+
+        async function connectWallet() {
+            try {
+                log('Attempting to connect to wallet...');
+                
+                if (!window.solana) {
+                    throw new Error('No Solana wallet found');
+                }
+
+                const result = await window.solana.connect({ onlyIfTrusted: false });
+                log('Wallet connected successfully!', 'success');
+                log('Public key: ' + result.publicKey.toString(), 'info');
+                
+                document.getElementById('signBtn').disabled = false;
+                updateStatus('Wallet connected: ' + result.publicKey.toString().slice(0, 8) + '...', 'success');
+                
+            } catch (error) {
+                log('Connection failed: ' + error.message, 'error');
+                updateStatus('Connection failed', 'error');
+            }
+        }
+
+        async function signMessage() {
+            try {
+                log('Attempting to sign message...');
+                
+                const message = 'Test message for Wealth Wars ' + Date.now();
+                const encoder = new TextEncoder();
+                const messageBytes = encoder.encode(message);
+                
+                log('Message to sign: ' + message, 'info');
+                
+                const result = await window.solana.signMessage(messageBytes, 'utf8');
+                
+                // Convert signature to base64
+                function toBase64(uint8Array) {
+                    let binary = "";
+                    const len = uint8Array.length;
+                    for (let i = 0; i < len; i += 1) {
+                        binary += String.fromCharCode(uint8Array[i]);
+                    }
+                    return btoa(binary);
+                }
+                
+                const base64Signature = toBase64(result.signature);
+                
+                log('Message signed successfully!', 'success');
+                log('Signature (base64): ' + base64Signature, 'info');
+                updateStatus('Message signed successfully!', 'success');
+                
+            } catch (error) {
+                log('Signing failed: ' + error.message, 'error');
+                updateStatus('Signing failed', 'error');
+            }
+        }
+    </script>
+</body>
+</html>
