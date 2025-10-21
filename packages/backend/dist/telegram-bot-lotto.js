@@ -44,6 +44,13 @@ export function createTelegramBot(token, services) {
     const userIdentity = services?.userIdentity;
     const lottoServices = services?.lottoServices;
     const MODE = (process.env.LOTTO_MODE || 'sol').toLowerCase();
+    const API_BASE = (process.env.PUBLIC_API_URL || process.env.PUBLIC_WEBAPP_URL || '').replace(/\/$/, '');
+    const buildJoinUrl = (roundId) => {
+        const base = process.env.SIGNING_BASE_URL || 'https://wealthwars.fun';
+        const api = API_BASE || base; // fallback to same host if PUBLIC_API_URL not set
+        const url = `${base.replace(/\/$/, '')}/join.html?round=${roundId}&api=${encodeURIComponent(api)}`;
+        return url;
+    };
     // =============================================================================
     // Start & Help Commands
     // =============================================================================
@@ -185,15 +192,19 @@ Tx: \`${result.txSignature}\``);
             if (!round) {
                 return ctx.reply('ℹ️ No active round. Use /bet <amount> to start one.');
             }
-            const potLamports = BigInt(round.potAmount?.toString?.() || '0');
-            const ticketLamports = BigInt(round.ticketPriceLamports?.toString?.() || '0');
-            const potWealth = lamportsToWealth(potLamports);
-            const ticketWealth = lamportsToWealth(ticketLamports);
+            const mode = MODE;
+            const decimals = parseInt(process.env.WEALTH_DECIMALS || '6', 10);
+            const potUnits = BigInt(round.potAmount?.toString?.() || '0');
+            const ticketUnits = BigInt(round.ticketPriceLamports?.toString?.() || '0');
+            const toUi = (units) => mode === 'spl' ? Number(units) / Math.pow(10, decimals) : Number(units) / 1e9;
+            const potWealth = toUi(potUnits);
+            const ticketWealth = mode === 'spl' ? parseFloat(process.env.ENTRY_WEALTH || '100') : toUi(ticketUnits);
+            const unit = mode === 'spl' ? '$WEALTH' : 'SOL';
             await ctx.reply(`🎰 Current Round #${round.id}
 
 Entries: ${round.entryCount || 0}
-Ticket: ${ticketWealth.toFixed(2)} $WEALTH
-Pot: ${potWealth.toFixed(2)} $WEALTH`);
+Ticket: ${ticketWealth.toFixed(2)} ${unit}
+Pot: ${potWealth.toFixed(2)} ${unit}`);
         }
         catch (e) {
             console.error('Round command error:', e);
@@ -297,9 +308,10 @@ Required: ${amount.toFixed(2)} $WEALTH`);
                     if (!round) {
                         return ctx.reply('❌ Failed to create a new round. Please try again.');
                     }
+                    const unit = MODE === 'spl' ? '$WEALTH' : 'SOL';
                     const msg = await ctx.reply(`🎰 Created a new round #${created.id}
 
-Ticket price: ${amount.toFixed(2)} $WEALTH
+Ticket price: ${amount.toFixed(2)} ${unit}
 Use /join to participate!`);
                     // Track lobby message so we can edit it live
                     botNotifier.setLobby(created.id, ctx.chat.id, msg.message_id);
@@ -320,8 +332,7 @@ Use /join to participate!`);
                 return ctx.reply('❌ You have already entered this round!');
             }
             if (MODE === 'spl') {
-                const base = process.env.SIGNING_BASE_URL || 'https://wealthwars.fun';
-                const joinUrl = `${base.replace(/\/$/, '')}/join.html?round=${round.id}`;
+                const joinUrl = buildJoinUrl(round.id);
                 return ctx.reply(`⚠️ This entry requires your wallet signature.\n\nPlease complete via the Mini‑App:\n${joinUrl}`);
             }
             ctx.reply('⏳ Processing your entry... Please wait.');
@@ -373,8 +384,7 @@ Transaction is confirming... Check /round for updates.`);
                 try {
                     const current = await prisma.round.findFirst({ where: { status: 'OPEN' }, orderBy: { createdAt: 'desc' }, select: { id: true } });
                     if (current?.id) {
-                        const base = process.env.SIGNING_BASE_URL || 'https://wealthwars.fun';
-                        const joinUrl = `${base.replace(/\/$/, '')}/join.html?round=${current.id}`;
+                        const joinUrl = buildJoinUrl(current.id);
                         return ctx.reply(`⚠️ This entry requires your wallet signature.\n\nPlease complete via the Mini‑App:\n${joinUrl}`);
                     }
                 }
@@ -480,8 +490,7 @@ Required: ${ticketPrice.toFixed(2)} $WEALTH`);
                 return ctx.reply('❌ You have already entered this round!');
             }
             if (MODE === 'spl') {
-                const base = process.env.SIGNING_BASE_URL || 'https://wealthwars.fun';
-                const joinUrl = `${base.replace(/\/$/, '')}/join.html?round=${round.id}`;
+                const joinUrl = buildJoinUrl(round.id);
                 return ctx.reply(`⚠️ This entry requires your wallet signature.\n\nOpen Mini‑App to sign & join:\n${joinUrl}`);
             }
             ctx.reply('⏳ Processing your entry... Please wait.');
@@ -526,8 +535,7 @@ Transaction is confirming...`);
                 try {
                     const current = await prisma.round.findFirst({ where: { status: 'OPEN' }, orderBy: { createdAt: 'desc' }, select: { id: true } });
                     if (current?.id) {
-                        const base = process.env.SIGNING_BASE_URL || 'https://wealthwars.fun';
-                        const joinUrl = `${base.replace(/\/$/, '')}/join.html?round=${current.id}`;
+                        const joinUrl = buildJoinUrl(current.id);
                         return ctx.reply(`⚠️ Wallet signature needed.\n\nOpen Mini‑App to sign & join:\n${joinUrl}`);
                     }
                 }

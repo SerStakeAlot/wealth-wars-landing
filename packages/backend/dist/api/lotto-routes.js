@@ -243,28 +243,28 @@ export function createLottoRoutes(lottoServices, userService) {
             const [treasuryVaultPda] = findTreasuryVaultPda(ep.authority.publicKey, programId);
 
             // Compute ATAs
-            const entrantAta = getAssociatedTokenAddressSync(MINT, entrant, false);
-            const treasuryVaultAta = getAssociatedTokenAddressSync(MINT, treasuryVaultPda, true);
+            const entrantAta = getAssociatedTokenAddressSync(MINT, entrant, false, TOKEN_PROGRAM_ID);
+            const treasuryVaultAta = getAssociatedTokenAddressSync(MINT, treasuryVaultPda, true, TOKEN_PROGRAM_ID);
 
             tx = new Transaction();
 
             // Ensure entrant ATA exists (payer: entrant)
             const entrantAtaInfo = await lottoServices.roundManager.connection.getAccountInfo(entrantAta);
             if (!entrantAtaInfo) {
-                tx.add(createAssociatedTokenAccountInstruction(entrant, entrantAta, entrant, MINT));
+                tx.add(createAssociatedTokenAccountInstruction(entrant, entrantAta, entrant, MINT, TOKEN_PROGRAM_ID));
             }
 
             // Ensure treasury vault ATA exists (payer: entrant to avoid server fees)
             const treasuryAtaInfo = await lottoServices.roundManager.connection.getAccountInfo(treasuryVaultAta);
             if (!treasuryAtaInfo) {
-                tx.add(createAssociatedTokenAccountInstruction(entrant, treasuryVaultAta, treasuryVaultPda, MINT));
+                tx.add(createAssociatedTokenAccountInstruction(entrant, treasuryVaultAta, treasuryVaultPda, MINT, TOKEN_PROGRAM_ID));
             }
 
             // Amount in base units: ENTRY_WEALTH
             const entryWealth = parseFloat(process.env.ENTRY_WEALTH || '100');
             const amountBase = BigInt(Math.round(entryWealth * 10 ** decimals));
             // transferChecked from entrant ATA to treasury vault ATA
-            tx.add(createTransferCheckedInstruction(entrantAta, MINT, treasuryVaultAta, entrant, Number(amountBase), decimals));
+            tx.add(createTransferCheckedInstruction(entrantAta, MINT, treasuryVaultAta, entrant, Number(amountBase), decimals, [], TOKEN_PROGRAM_ID));
 
             // Optionally also include the on-chain join instruction if program expects SOL path; for SPL-only pot, we skip program join here.
             const { blockhash } = await lottoServices.roundManager.connection.getLatestBlockhash();
