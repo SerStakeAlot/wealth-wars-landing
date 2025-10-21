@@ -6,57 +6,45 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Wealth Wars Wallet Verification</title>
   
-  <!-- Critical: Load polyfills synchronously first -->
+  <!-- More comprehensive polyfills for Solana wallet connection -->
   <script>
-    // Prevent page from going blank due to errors
+    // Comprehensive polyfill setup - must be first
     (function() {
-      'use strict';
+      console.log('[DEBUG] Setting up polyfills...');
       
-      console.log('[INIT] Starting polyfill setup...');
-      
-      // Set up global immediately
+      // Set up global
       if (typeof global === 'undefined') {
         window.global = window;
-        console.log('[INIT] global polyfill set');
+        console.log('[DEBUG] global polyfill added');
       }
       
-      // Set up process for some wallet adapters
+      // Set up process (some wallets expect this)
       if (typeof process === 'undefined') {
-        window.process = { 
-          env: {},
-          browser: true,
-          version: '',
-          versions: { node: '' }
-        };
-        console.log('[INIT] process polyfill set');
+        window.process = { env: {} };
+        console.log('[DEBUG] process polyfill added');
       }
       
-      // Catch and prevent page-breaking errors
-      window.addEventListener('error', function(e) {
-        console.error('[ERROR] Caught:', e.error || e.message);
-        e.preventDefault(); // Prevent default error handling that might blank the page
-        return true;
-      });
+      // Load Buffer polyfill synchronously
+      if (typeof Buffer === 'undefined') {
+        console.log('[DEBUG] Loading Buffer polyfill...');
+        const script = document.createElement('script');
+        script.src = 'https://unpkg.com/buffer@6.0.3/index.js';
+        script.onload = function() {
+          if (typeof buffer !== 'undefined') {
+            window.Buffer = buffer.Buffer;
+            console.log('[DEBUG] Buffer polyfill loaded successfully');
+          } else {
+            console.error('[DEBUG] Buffer polyfill failed to load');
+          }
+        };
+        script.onerror = function() {
+          console.error('[DEBUG] Failed to load Buffer polyfill script');
+        };
+        document.head.appendChild(script);
+      }
       
-      window.addEventListener('unhandledrejection', function(e) {
-        console.error('[REJECTION] Caught:', e.reason);
-        e.preventDefault(); // Prevent unhandled promise rejections from breaking the page
-      });
-      
-      console.log('[INIT] Error handlers set');
+      console.log('[DEBUG] Polyfill setup complete');
     })();
-  </script>
-  
-  <!-- Load Buffer polyfill -->
-  <script src="https://unpkg.com/buffer@6.0.3/index.js"></script>
-  <script>
-    // Set up Buffer polyfill
-    if (typeof buffer !== 'undefined' && buffer.Buffer) {
-      window.Buffer = buffer.Buffer;
-      console.log('[INIT] Buffer polyfill loaded');
-    } else {
-      console.error('[INIT] Buffer polyfill failed');
-    }
   </script>
   
   <style>
@@ -171,6 +159,16 @@
     a {
       color: #38bdf8;
     }
+    .debug {
+      margin-top: 20px;
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      font-family: monospace;
+      font-size: 12px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
   </style>
 </head>
 <body>
@@ -200,35 +198,44 @@
       <div id="signatureAlert" class="alert" hidden></div>
     </div>
 
+    <div class="section">
+      <div class="badge">Debug Info</div>
+      <div id="debugInfo" class="debug"></div>
+    </div>
+
     <div class="footer">
       <p>Need help? Contact the team on <a href="https://t.me/+yEGQC4AMep1lZGZh" target="_blank" rel="noopener">Telegram</a>.</p>
     </div>
   </main>
 
   <script>
-    console.log("[INIT] Starting page initialization...");
-    
-    // Ensure page stays visible
-    document.addEventListener('DOMContentLoaded', function() {
-      console.log("[INIT] DOM loaded");
-      document.body.style.display = 'flex'; // Force visibility
-    });
-    
-    // Double-check visibility after a short delay
-    setTimeout(function() {
-      console.log("[INIT] Ensuring page visibility...");
-      if (document.body) {
-        document.body.style.display = 'flex';
-        document.body.style.visibility = 'visible';
-        document.body.style.opacity = '1';
+    // Debug logging function
+    function debugLog(message) {
+      console.log('[DEBUG]', message);
+      const debugDiv = document.getElementById('debugInfo');
+      if (debugDiv) {
+        debugDiv.innerHTML += new Date().toLocaleTimeString() + ': ' + message + '<br>';
+        debugDiv.scrollTop = debugDiv.scrollHeight;
       }
-    }, 100);
+    }
+
+    // Initialize debug logging
+    debugLog('Page loaded, initializing...');
+    
+    // Catch all errors
+    window.addEventListener('error', function(e) {
+      debugLog('ERROR: ' + e.message + ' at ' + e.filename + ':' + e.lineno);
+    });
+
+    window.addEventListener('unhandledrejection', function(e) {
+      debugLog('UNHANDLED PROMISE REJECTION: ' + e.reason);
+    });
 
     const params = new URLSearchParams(window.location.search);
     const rawMessage = params.get("message");
     const decodedMessage = rawMessage ? decodeURIComponent(rawMessage) : "No message provided. Return to the bot and start the linking process again.";
 
-    console.log("[INIT] Message decoded:", decodedMessage);
+    debugLog('Message decoded: ' + decodedMessage);
 
     const messageBox = document.getElementById("messageBox");
     const signatureBox = document.getElementById("signatureBox");
@@ -239,18 +246,10 @@
     const phantomAlert = document.getElementById("phantomAlert");
     const signatureAlert = document.getElementById("signatureAlert");
 
-    if (messageBox) {
-      messageBox.textContent = decodedMessage;
-    } else {
-      console.error("[INIT] messageBox element not found");
-    }
+    messageBox.textContent = decodedMessage;
 
     function showAlert(node, text, type = "info") {
-      console.log("[ALERT]", type.toUpperCase(), ":", text);
-      if (!node) {
-        console.error("[ALERT] Alert node not found");
-        return;
-      }
+      debugLog('Alert: [' + type + '] ' + text);
       node.textContent = text;
       node.className = `alert ${type === "error" ? "error" : type === "success" ? "success" : ""}`;
       node.hidden = false;
@@ -265,6 +264,7 @@
         await navigator.clipboard.writeText(decodedMessage);
         showAlert(messageAlert, "Message copied to clipboard.", "success");
       } catch (error) {
+        debugLog('Copy message error: ' + error.message);
         showAlert(messageAlert, "Unable to copy message. Please copy manually.", "error");
       }
     });
@@ -274,6 +274,7 @@
         await navigator.clipboard.writeText(signatureBox.textContent.trim());
         showAlert(signatureAlert, "Signature copied. Paste it in Telegram.", "success");
       } catch (error) {
+        debugLog('Copy signature error: ' + error.message);
         showAlert(signatureAlert, "Unable to copy signature. Copy manually from the box above.", "error");
       }
     });
@@ -287,152 +288,128 @@
       return btoa(binary);
     }
 
-    signButton.addEventListener("click", async () => {
-      console.log("[WALLET] Sign button clicked");
+    // Check wallet availability periodically
+    let walletCheckInterval;
+    function checkWallet() {
+      debugLog('Checking wallet availability...');
       
-      // Prevent any errors from blanking the page
+      if (typeof window.solana !== 'undefined') {
+        debugLog('window.solana found');
+        if (window.solana.isPhantom) {
+          debugLog('Phantom wallet detected');
+          clearInterval(walletCheckInterval);
+          return true;
+        } else {
+          debugLog('Non-Phantom Solana wallet detected');
+        }
+      } else {
+        debugLog('No window.solana object found');
+      }
+      return false;
+    }
+
+    // Start checking for wallet
+    walletCheckInterval = setInterval(checkWallet, 1000);
+    
+    // Initial check
+    setTimeout(checkWallet, 100);
+
+    signButton.addEventListener("click", async () => {
+      debugLog("Sign button clicked");
+      
       try {
         // Check if we're in a mobile browser or app
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-        console.log("[WALLET] Is mobile:", isMobile);
+        debugLog("Is mobile: " + isMobile);
         
-        // Wait for polyfills if needed
-        let attempts = 0;
-        while (typeof Buffer === 'undefined' && attempts < 20) {
-          console.log("[WALLET] Waiting for Buffer polyfill, attempt:", attempts + 1);
-          await new Promise(resolve => setTimeout(resolve, 100));
-          attempts++;
+        // Wait for polyfills to load
+        let retries = 0;
+        while (typeof Buffer === 'undefined' && retries < 10) {
+          debugLog('Waiting for Buffer polyfill... attempt ' + (retries + 1));
+          await new Promise(resolve => setTimeout(resolve, 500));
+          retries++;
         }
         
         if (typeof Buffer === 'undefined') {
-          console.error("[WALLET] Buffer polyfill never loaded");
-          throw new Error('Page setup incomplete. Please refresh and try again.');
+          throw new Error('Buffer polyfill failed to load after 10 attempts');
         }
         
-        console.log("[WALLET] Polyfills ready - Buffer:", typeof Buffer, "global:", typeof global);
+        debugLog('Buffer is available: ' + (typeof Buffer !== 'undefined'));
+        debugLog('global is available: ' + (typeof global !== 'undefined'));
         
         if (!window.solana) {
           const errorMsg = isMobile 
-            ? "Please open this link in the Phantom mobile app browser, or install Phantom wallet first."
-            : "Phantom wallet not detected. Please install the Phantom browser extension and refresh this page.";
+            ? "Open this link in the Phantom app browser, or install Phantom wallet first."
+            : "Phantom wallet not detected. Please install the Phantom browser extension first.";
           throw new Error(errorMsg);
         }
 
-        console.log("[WALLET] Solana object found, isPhantom:", window.solana.isPhantom);
-
         if (!window.solana.isPhantom) {
-          throw new Error("Please use Phantom wallet for signing. Other wallets are not supported yet.");
+          throw new Error("Please use Phantom wallet for signing.");
         }
 
         signButton.disabled = true;
         signButton.textContent = "Connecting...";
-        showAlert(phantomAlert, "Connecting to Phantom wallet...", "info");
         
-        console.log("[WALLET] Attempting to connect...");
+        debugLog("Attempting to connect to Phantom...");
         
-        // Connect to the wallet with error handling
-        let connectResult;
-        try {
-          connectResult = await Promise.race([
-            window.solana.connect({ onlyIfTrusted: false }),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Connection timeout')), 30000))
-          ]);
-        } catch (connectError) {
-          console.error("[WALLET] Connection failed:", connectError);
-          if (connectError.message.includes('timeout')) {
-            throw new Error('Connection timed out. Please try again.');
-          } else if (connectError.message.includes('rejected')) {
-            throw new Error('Connection was cancelled. Please try again and approve the connection.');
-          } else {
-            throw new Error('Failed to connect to wallet: ' + connectError.message);
-          }
-        }
-        
-        console.log("[WALLET] Connection result:", {
-          hasPublicKey: !!connectResult?.publicKey,
-          publicKey: connectResult?.publicKey?.toString()
-        });
+        // Try to connect to the wallet
+        const connectResult = await window.solana.connect({ onlyIfTrusted: false });
+        debugLog("Connection result: " + JSON.stringify({
+          publicKey: connectResult?.publicKey?.toString(),
+          connected: !!connectResult
+        }));
         
         if (!connectResult || !connectResult.publicKey) {
-          throw new Error("Failed to connect to wallet - no public key received. Please try again.");
+          throw new Error("Failed to connect to wallet - no public key received");
         }
 
         signButton.textContent = "Awaiting signature...";
-        showAlert(phantomAlert, "Wallet connected! Please sign the message...", "info");
-        console.log("[WALLET] Connected to wallet:", connectResult.publicKey.toString().slice(0, 8) + '...');
+        debugLog("Connected to wallet: " + connectResult.publicKey.toString());
 
         const encoder = new TextEncoder();
         const messageBytes = encoder.encode(decodedMessage);
-        console.log("[WALLET] Message to sign:", decodedMessage);
-        console.log("[WALLET] Message bytes length:", messageBytes.length);
+        debugLog("Message to sign: " + decodedMessage);
+        debugLog("Message bytes length: " + messageBytes.length);
 
-        // Sign with error handling
-        let signResult;
-        try {
-          signResult = await Promise.race([
-            window.solana.signMessage(messageBytes, "utf8"),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Signing timeout')), 60000))
-          ]);
-        } catch (signError) {
-          console.error("[WALLET] Signing failed:", signError);
-          if (signError.message.includes('timeout')) {
-            throw new Error('Signing timed out. Please try again.');
-          } else if (signError.message.includes('rejected') || signError.message.includes('denied')) {
-            throw new Error('Signing was cancelled. Please try again and approve the message signing.');
-          } else {
-            throw new Error('Failed to sign message: ' + signError.message);
-          }
-        }
-        
-        console.log("[WALLET] Sign result received, has signature:", !!signResult?.signature);
+        const signResult = await window.solana.signMessage(messageBytes, "utf8");
+        debugLog("Sign result received, has signature: " + !!signResult?.signature);
         
         if (!signResult || !signResult.signature) {
-          throw new Error("No signature received from wallet. Please try again.");
+          throw new Error("No signature received from wallet");
         }
 
         const base64Signature = toBase64(signResult.signature);
-        console.log("[WALLET] Base64 signature generated, length:", base64Signature.length);
+        debugLog("Base64 signature length: " + base64Signature.length);
 
         signatureBox.textContent = base64Signature;
         copySignatureBtn.disabled = false;
-        showAlert(signatureAlert, "✅ Signature ready! Copy it and send to the Telegram bot.", "success");
-        showAlert(phantomAlert, "Success! Signature generated.", "success");
+        showAlert(signatureAlert, "Signature ready! Copy and send it to the Telegram bot.", "success");
         
       } catch (error) {
-        console.error("[WALLET] Error in signing process:", error);
+        debugLog("Signing error: " + error.message);
+        debugLog("Error stack: " + error.stack);
         
-        let errorMessage = "Signing failed: " + (error.message || "Unknown error");
-        
-        // More specific error messages
-        if (error.message && error.message.includes("User rejected")) {
-          errorMessage = "❌ Signing was cancelled. Please try again and approve when prompted.";
-        } else if (error.message && error.message.includes("connect")) {
-          errorMessage = "❌ Connection failed. Please refresh the page and try again.";
-        } else if (error.message && error.message.includes("timeout")) {
-          errorMessage = "❌ Request timed out. Please try again.";
-        } else if (error.message && error.message.includes("not detected")) {
-          errorMessage = "❌ Phantom wallet not found. Please install Phantom and refresh.";
+        let errorMessage = "Signing failed.";
+        if (error?.message) {
+          if (error.message.includes("User rejected")) {
+            errorMessage = "Signing was cancelled by user.";
+          } else if (error.message.includes("connect")) {
+            errorMessage = "Failed to connect to wallet. Try refreshing and reconnecting.";
+          } else {
+            errorMessage = `Error: ${error.message}`;
+          }
         }
         
         showAlert(phantomAlert, errorMessage, "error");
-        
-        // Don't let errors break the page
       } finally {
         signButton.disabled = false;
         signButton.textContent = "Sign with Phantom";
       }
     });
 
-    // Final initialization check
-    console.log("[INIT] Page setup complete");
-    
-    // Ensure visibility one more time
-    setTimeout(function() {
-      if (document.body) {
-        document.body.style.display = 'flex';
-        console.log("[INIT] Final visibility check passed");
-      }
-    }, 500);
+    // Page load complete
+    debugLog('Page initialization complete');
   </script>
 </body>
 </html>
