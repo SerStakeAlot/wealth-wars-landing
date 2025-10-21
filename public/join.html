@@ -43,6 +43,20 @@
   </main>
 
   <script>
+    // Surface errors instead of leaving a blank page
+    window.addEventListener('error', (e) => {
+      const msg = (e?.error?.message || e?.message || String(e)).toString();
+      const node = document.getElementById('state');
+      if (node) { node.textContent = `Error: ${msg}`; node.className = 'alert error'; node.hidden = false; }
+      console.error('[join] window.onerror', e);
+    });
+    window.addEventListener('unhandledrejection', (e) => {
+      const msg = (e?.reason?.message || String(e?.reason || e)).toString();
+      const node = document.getElementById('state');
+      if (node) { node.textContent = `Error: ${msg}`; node.className = 'alert error'; node.hidden = false; }
+      console.error('[join] unhandledrejection', e);
+    });
+
     const qs = new URLSearchParams(location.search);
   const roundId = qs.get('round');
   const apiBase = (qs.get('api') || '').replace(/\/$/, '') || (location.hostname.endsWith('wealthwars.fun') ? 'https://wealth-wars-backend-production.up.railway.app' : location.origin);
@@ -56,7 +70,8 @@
       sig: document.getElementById('sig'),
     };
 
-    const show = (node, text, type) => { node.textContent = text; node.className = 'alert ' + (type||''); node.hidden = false; };
+  const show = (node, text, type) => { node.textContent = text; node.className = 'alert ' + (type||''); node.hidden = false; };
+  const phantomUniversalLink = () => `https://phantom.app/ul/browse/${encodeURIComponent(location.href)}`;
 
     let wallet = null;
     let prepared = null;
@@ -97,7 +112,14 @@
 
     ui.connect.onclick = async () => {
       try {
-        if (!window.solana || !window.solana.isPhantom) return show(ui.state, 'Phantom not detected', 'error');
+        if (!window.solana || !window.solana.isPhantom) {
+          // Likely opened inside an in-app browser (e.g., Telegram). Offer Phantom universal link.
+          const link = phantomUniversalLink();
+          ui.state.innerHTML = `Phantom not detected. If you are in an app browser (Telegram), tap this to open in Phantom:<br><a href="${link}" style="color:#93c5fd">Open in Phantom</a>`;
+          ui.state.className = 'alert error';
+          ui.state.hidden = false;
+          return;
+        }
         await window.solana.connect({ onlyIfTrusted: false });
         wallet = window.solana.publicKey.toString();
         ui.wallet.textContent = wallet;

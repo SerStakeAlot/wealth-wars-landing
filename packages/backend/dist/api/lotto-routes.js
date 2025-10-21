@@ -328,7 +328,8 @@ export function createLottoRoutes(lottoServices, userService) {
 
             // Confirm signature on-chain (best-effort)
             try {
-                await connection.confirmTransaction(signature, 'confirmed');
+                const conf = await connection.confirmTransaction(signature, 'confirmed');
+                console.log('[JoinSubmit] confirm status:', conf?.value);
             }
             catch (e) {
                 console.warn('[JoinSubmit] confirmTransaction failed (continuing):', e?.message || e);
