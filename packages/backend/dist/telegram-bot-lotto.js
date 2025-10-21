@@ -43,6 +43,7 @@ export function createTelegramBot(token, services) {
     const prisma = services?.prisma || new PrismaClient();
     const userIdentity = services?.userIdentity;
     const lottoServices = services?.lottoServices;
+    const MODE = (process.env.LOTTO_MODE || 'sol').toLowerCase();
     // =============================================================================
     // Start & Help Commands
     // =============================================================================
@@ -318,6 +319,11 @@ Use /join to participate!`);
             if (existingEntry) {
                 return ctx.reply('❌ You have already entered this round!');
             }
+            if (MODE === 'spl') {
+                const base = process.env.SIGNING_BASE_URL || 'https://wealthwars.fun';
+                const joinUrl = `${base.replace(/\/$/, '')}/join.html?round=${round.id}`;
+                return ctx.reply(`⚠️ This entry requires your wallet signature.\n\nPlease complete via the Mini‑App:\n${joinUrl}`);
+            }
             ctx.reply('⏳ Processing your entry... Please wait.');
             // Convert amount to lamports
             const amountLamports = BigInt(Math.round(amount * 1e9));
@@ -363,7 +369,7 @@ Transaction is confirming... Check /round for updates.`);
         catch (error) {
             console.error('Bet command error:', error);
             const msg = (error?.message || '').toString();
-            if (/User signature required/i.test(msg)) {
+            if (/User signature required/i.test(msg) || /LOTTO_MODE=spl/i.test(msg) || /not yet supported/i.test(msg)) {
                 try {
                     const current = await prisma.round.findFirst({ where: { status: 'OPEN' }, orderBy: { createdAt: 'desc' }, select: { id: true } });
                     if (current?.id) {
@@ -473,6 +479,11 @@ Required: ${ticketPrice.toFixed(2)} $WEALTH`);
             if (existingEntry) {
                 return ctx.reply('❌ You have already entered this round!');
             }
+            if (MODE === 'spl') {
+                const base = process.env.SIGNING_BASE_URL || 'https://wealthwars.fun';
+                const joinUrl = `${base.replace(/\/$/, '')}/join.html?round=${round.id}`;
+                return ctx.reply(`⚠️ This entry requires your wallet signature.\n\nOpen Mini‑App to sign & join:\n${joinUrl}`);
+            }
             ctx.reply('⏳ Processing your entry... Please wait.');
             // Join with ticket price
             const entry = await lottoServices.entryProcessor.joinRound({
@@ -511,7 +522,7 @@ Transaction is confirming...`);
         catch (error) {
             console.error('Join command error:', error);
             const msg = (error?.message || '').toString();
-            if (/User signature required/i.test(msg)) {
+            if (/User signature required/i.test(msg) || /LOTTO_MODE=spl/i.test(msg) || /not yet supported/i.test(msg)) {
                 try {
                     const current = await prisma.round.findFirst({ where: { status: 'OPEN' }, orderBy: { createdAt: 'desc' }, select: { id: true } });
                     if (current?.id) {
