@@ -10,6 +10,7 @@ import { buildJoinRoundTx, findEntryPda } from '../solana/index.js';
 import { validateBody, validateParams, requireAdmin, asyncHandler, successResponse, errorResponse, } from './middleware.js';
 import { CreateRoundSchema, JoinRoundWebSchema, JoinRoundTelegramSchema, ClaimSchema, CreateWebUserSchema, CreateTelegramUserSchema, } from './schemas.js';
 import { z } from 'zod';
+import { botNotifier } from '../services/bot-notifier.js';
 export function createLottoRoutes(lottoServices, userService) {
     const router = Router();
     // BigInt-safe deep serializer for API responses
@@ -93,6 +94,8 @@ export function createLottoRoutes(lottoServices, userService) {
             durationSlots,
             retainedBps,
         });
+        // Notify bot to post lobby header
+        botNotifier.emit('round:created', { roundId: round.id, ticketPriceLamports: String(ticketPriceLamports) });
         return sendJson(res, { round }, 201);
     }));
     /**
@@ -224,11 +227,57 @@ export function createLottoRoutes(lottoServices, userService) {
         // Compute next nonce
         const nonce = await ep.getNextEntryNonce(onchainRoundId);
 
-        // Build transaction (unsigned) and set recent blockhash + fee payer
-        const tx = await buildJoinRoundTx(ep.program, entrant, roundPda, { tickets: 1, nonce }, ep.authority.publicKey);
-        const { blockhash } = await lottoServices.roundManager.connection.getLatestBlockhash();
-        tx.recentBlockhash = blockhash;
-        tx.feePayer = entrant;
+        const mode = (process.env.LOTTO_MODE || 'sol').toLowerCase();
+        let tx;
+        if (mode === 'spl') {
+            // Build SPL transfer to treasury vault ATA (client-pays fees)
+            const TOKEN_PROGRAM_ID = new PublicKey(process.env.WEALTH_TOKEN_PROGRAM || 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
+            const MINT = new PublicKey(process.env.WEALTH_MINT);
+            const decimals = parseInt(process.env.WEALTH_DECIMALS || '6', 10);
+            const { SystemProgram, Transaction } = await import('@solana/web3.js');
+            const { getAssociatedTokenAddressSync, createAssociatedTokenAccountInstruction, createTransferCheckedInstruction } = await import('@solana/spl-token');
+
+            // PDAs
+            const programId = ep.program.programId;
+            const { findTreasuryVaultPda } = await import('../solana/index.js');
+            const [treasuryVaultPda] = findTreasuryVaultPda(ep.authority.publicKey, programId);
+
+            // Compute ATAs
+            const entrantAta = getAssociatedTokenAddressSync(MINT, entrant, false);
+            const treasuryVaultAta = getAssociatedTokenAddressSync(MINT, treasuryVaultPda, true);
+
+            tx = new Transaction();
+
+            // Ensure entrant ATA exists (payer: entrant)
+            const entrantAtaInfo = await lottoServices.roundManager.connection.getAccountInfo(entrantAta);
+            if (!entrantAtaInfo) {
+                tx.add(createAssociatedTokenAccountInstruction(entrant, entrantAta, entrant, MINT));
+            }
+
+            // Ensure treasury vault ATA exists (payer: entrant to avoid server fees)
+            const treasuryAtaInfo = await lottoServices.roundManager.connection.getAccountInfo(treasuryVaultAta);
+            if (!treasuryAtaInfo) {
+                tx.add(createAssociatedTokenAccountInstruction(entrant, treasuryVaultAta, treasuryVaultPda, MINT));
+            }
+
+            // Amount in base units: ENTRY_WEALTH
+            const entryWealth = parseFloat(process.env.ENTRY_WEALTH || '100');
+            const amountBase = BigInt(Math.round(entryWealth * 10 ** decimals));
+            // transferChecked from entrant ATA to treasury vault ATA
+            tx.add(createTransferCheckedInstruction(entrantAta, MINT, treasuryVaultAta, entrant, Number(amountBase), decimals));
+
+            // Optionally also include the on-chain join instruction if program expects SOL path; for SPL-only pot, we skip program join here.
+            const { blockhash } = await lottoServices.roundManager.connection.getLatestBlockhash();
+            tx.recentBlockhash = blockhash;
+            tx.feePayer = entrant;
+        }
+        else {
+            // Build SOL-mode program join transaction
+            tx = await buildJoinRoundTx(ep.program, entrant, roundPda, { tickets: 1, nonce }, ep.authority.publicKey);
+            const { blockhash } = await lottoServices.roundManager.connection.getLatestBlockhash();
+            tx.recentBlockhash = blockhash;
+            tx.feePayer = entrant;
+        }
 
         // Serialize without requiring signatures (client will sign)
         const serialized = tx.serialize({ requireAllSignatures: false, verifySignatures: false });
@@ -312,14 +361,30 @@ export function createLottoRoutes(lottoServices, userService) {
                 } });
             }
 
-            // Amount safety: tolerate legacy rounds missing ticketPriceLamports
+            // Amount to record for this entry
+            // - SOL mode: use round.ticketPriceLamports (lamports)
+            // - SPL mode: use ENTRY_WEALTH in token base units (decimals)
             const amountLamports = (() => {
+                const mode = (process.env.LOTTO_MODE || 'sol').toLowerCase();
+                if (mode === 'spl') {
+                    try {
+                        const decimals = parseInt(process.env.WEALTH_DECIMALS || '6', 10);
+                        const entryWealth = parseFloat(process.env.ENTRY_WEALTH || '100');
+                        const units = BigInt(Math.round(entryWealth * Math.pow(10, decimals)));
+                        return units;
+                    }
+                    catch { return 0n; }
+                }
+                // SOL path (legacy)
                 try {
                     const v = dbRound.ticketPriceLamports;
-                    if (typeof v === 'bigint') return v;
-                    if (v != null) return BigInt(v.toString());
+                    if (typeof v === 'bigint')
+                        return v;
+                    if (v != null)
+                        return BigInt(v.toString());
                     return 0n;
-                } catch { return 0n; }
+                }
+                catch { return 0n; }
             })();
 
             let dbEntry;
@@ -369,6 +434,8 @@ export function createLottoRoutes(lottoServices, userService) {
                         potAmount: { increment: amountLamports },
                     },
                 });
+                // Emit lobby update event for bot (username enrichment optional)
+                botNotifier.emit('round:joined', { roundId, wallet, username: user.username });
             }
             catch (e) {
                 console.warn('[JoinSubmit] round.update aggregate failed (continuing):', e?.message || e);
@@ -488,6 +555,7 @@ export function createLottoRoutes(lottoServices, userService) {
             status: 'healthy',
             service: 'lotto-api',
             timestamp: new Date().toISOString(),
+            mode: (process.env.LOTTO_MODE || 'sol').toLowerCase(),
             authority: lottoServices?.roundManager?.authority?.publicKey?.toBase58?.() || undefined,
             token: {
                 mint: process.env.WEALTH_MINT,

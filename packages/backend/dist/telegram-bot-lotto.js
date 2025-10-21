@@ -7,8 +7,10 @@
 import { Telegraf } from 'telegraf';
 import { PrismaClient } from '@prisma/client';
 import { PublicKey } from '@solana/web3.js';
+import { findTreasuryPda, findTreasuryVaultPda } from './solana/index.js';
 import nacl from 'tweetnacl';
 import { getWealth } from './index.js';
+import { botNotifier } from './services/bot-notifier.js';
 const RAW_WEBAPP_URL = process.env.PUBLIC_WEBAPP_URL || process.env.WEBAPP_URL || 'https://wealthwars.fun';
 const WEBAPP_URL = /\.railway\.internal\b/i.test(RAW_WEBAPP_URL) ? 'https://wealthwars.fun' : RAW_WEBAPP_URL;
 const toBigInt = (value) => (typeof value === 'bigint' ? value : BigInt(value));
@@ -74,6 +76,35 @@ export function createTelegramBot(token, services) {
 4. Claim your winnings
 
 **Need Help?** Make sure your wallet is linked first!`);
+    });
+    // =============================================================================
+    // Audit Command - Show core addresses
+    // =============================================================================
+    bot.command('audit', async (ctx) => {
+        try {
+            if (!lottoServices) {
+                return ctx.reply('❌ Lotto services not initialized');
+            }
+            const programId = lottoServices.roundManager.program.programId;
+            const authorityPk = lottoServices.roundManager.authority.publicKey;
+            const [treasuryPda] = findTreasuryPda(authorityPk, programId);
+            const [treasuryVaultPda] = findTreasuryVaultPda(authorityPk, programId);
+            const apiBase = process.env.PUBLIC_API_URL || process.env.PUBLIC_WEBAPP_URL || 'https://wealthwars.fun';
+            const auditOverview = `${apiBase.replace(/\/$/, '')}/api/audit/lotto/overview`;
+            await ctx.reply(`🧾 Audit Overview
+
+Program: \`${programId.toBase58()}\`
+Authority: \`${authorityPk.toBase58()}\`
+Treasury PDA: \`${treasuryPda.toBase58()}\`
+Treasury Vault PDA: \`${treasuryVaultPda.toBase58()}\`
+
+REST: ${auditOverview}
+Tip: Use /round and /close, then claims to move funds out as designed.`);
+        }
+        catch (e) {
+            console.error('Audit command error:', e);
+            ctx.reply('❌ Audit failed');
+        }
     });
     // =============================================================================
     // Link Command - Guide user to link wallet
@@ -265,10 +296,12 @@ Required: ${amount.toFixed(2)} $WEALTH`);
                     if (!round) {
                         return ctx.reply('❌ Failed to create a new round. Please try again.');
                     }
-                    await ctx.reply(`🎰 Created a new round #${created.id}
+                    const msg = await ctx.reply(`🎰 Created a new round #${created.id}
 
 Ticket price: ${amount.toFixed(2)} $WEALTH
 Use /join to participate!`);
+                    // Track lobby message so we can edit it live
+                    botNotifier.setLobby(created.id, ctx.chat.id, msg.message_id);
                 }
                 catch (e) {
                     console.error('Create round error:', e);
@@ -305,7 +338,7 @@ Use /join to participate!`);
                 const updated = await prisma.round.findUnique({ where: { id: round.id }, select: { potAmount: true, entryCount: true } });
                 const potLamports = BigInt(updated?.potAmount?.toString?.() || '0');
                 const potWealth = lamportsToWealth(potLamports);
-                ctx.reply(`✅ **Entry Successful!**
+                const successMsg = `✅ **Entry Successful!**
 
 Round: #${round.id}
 Amount: ${amount.toFixed(3)} SOL
@@ -313,7 +346,10 @@ Tickets: 1
 Pot is now: ${potWealth.toFixed(3)} SOL (${updated?.entryCount || 0} entries)
 Transaction: \`${confirmedEntry.joinTxSignature}\`
 
-Good luck! 🍀`);
+Good luck! 🍀`;
+                await ctx.reply(successMsg);
+                // Emit a lobby update (API already emits; this is extra safety)
+                botNotifier.emit('round:joined', { roundId: round.id, wallet: user.wallet, username });
             }
             else {
                 ctx.reply(`⏳ Entry submitted!
@@ -339,6 +375,54 @@ Transaction is confirming... Check /round for updates.`);
                 catch {}
             }
             ctx.reply(`❌ Error entering round: ${msg || 'Unknown error'}`);
+        }
+    });
+
+    // ---------------------------------------------------------------------
+    // Live Lobby Updates: respond to events from API and edit message
+    // ---------------------------------------------------------------------
+    async function buildLobbyText(prisma, roundId) {
+        const round = await prisma.round.findUnique({ where: { id: roundId }, select: { id: true, status: true, entryCount: true, ticketPriceLamports: true } });
+        if (!round) return `❌ Round not found`;
+        const entries = await prisma.entry.findMany({ where: { roundId }, orderBy: { createdAt: 'asc' }, select: { wallet: true, userId: true } });
+        const users = await prisma.user.findMany({ where: { id: { in: entries.map(e => e.userId) } }, select: { id: true, username: true } });
+        const nameOf = (id) => users.find(u => u.id === id)?.username || 'player';
+        const list = entries.map((e, i) => `${i + 1}. ${nameOf(e.userId)} (${e.wallet.slice(0, 4)}...${e.wallet.slice(-4)})`).join('\n') || '—';
+        const mode = (process.env.LOTTO_MODE || 'sol').toLowerCase();
+        const ticketStr = (() => {
+            if (mode === 'spl') {
+                const entryWealth = parseFloat(process.env.ENTRY_WEALTH || '100');
+                return `${isFinite(entryWealth) ? entryWealth.toFixed(2) : '—'} $WEALTH`;
+            }
+            try { return `${lamportsToWealth(BigInt(round.ticketPriceLamports?.toString?.() || '0')).toFixed(3)} SOL`; } catch { return '—'; }
+        })();
+        return `🎰 Round #${round.id} — ${round.status}
+Ticket: ${ticketStr}
+Entries (${round.entryCount || 0}):
+${list}`;
+    }
+
+    // When a round is created, we keep the lobby in the originating chat (tracked in /bet)
+    botNotifier.on('round:created', async () => { /* no-op here */ });
+
+    // When someone joins, edit the lobby message to reflect latest entries
+    botNotifier.on('round:joined', async ({ roundId }) => {
+        try {
+            const lobby = botNotifier.getLobby(roundId);
+            const txt = await buildLobbyText(prisma, roundId);
+            if (lobby?.chatId && lobby?.messageId) {
+                try {
+                    await bot.telegram.editMessageText(lobby.chatId, lobby.messageId, undefined, txt, { parse_mode: 'Markdown' });
+                }
+                catch (e) {
+                    // If edit fails (e.g., message too old), send a new one and track it
+                    const res = await bot.telegram.sendMessage(lobby.chatId, txt, { parse_mode: 'Markdown' });
+                    if (res?.chat?.id && res?.message_id) botNotifier.setLobby(roundId, res.chat.id, res.message_id);
+                }
+            }
+        }
+        catch (e) {
+            console.warn('round:joined notify failed:', e?.message || e);
         }
     });
     // =============================================================================

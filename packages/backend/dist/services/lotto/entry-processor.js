@@ -74,7 +74,9 @@ export class EntryProcessor {
         // For now, we'll use the authority as a placeholder
         const mode = (process.env.LOTTO_MODE || 'sol').toLowerCase();
         if (mode === 'spl') {
-            throw new Error('LOTTO_MODE=spl not yet supported in deployed program. Deploy SPL-enabled program and update builders.');
+            // In SPL mode, entries are processed via client-signed SPL transfer and /join/submit.
+            // Return a user-facing error to drive the signing flow from bot/mini-app.
+            throw new Error('User signature required to join. Please use the web signing flow to authorize your entry.');
         }
         const tx = await buildJoinRoundTx(this.program, params.userWallet, roundPda, { tickets: 1, nonce }, this.authority.publicKey);
         let signature;

@@ -44,22 +44,34 @@ export class RoundManager {
         console.log(`[RoundManager] Treasury PDA: ${treasuryPda.toBase58()}`);
         // Build and send initialize transaction
         const mode = (process.env.LOTTO_MODE || 'sol').toLowerCase();
-        if (mode === 'spl') {
-            throw new Error('LOTTO_MODE=spl not yet supported in deployed program. Deploy SPL-enabled program and update builders.');
+        let signature = 'offchain-spl-init';
+        // In SPL mode, we do not initialize on-chain; we derive PDAs and create DB record only
+        let startSlot = 0n;
+        let endSlot = 0n;
+        if (mode !== 'spl') {
+            const tx = await buildInitializeRoundTx(this.program, this.authority.publicKey, {
+                roundId,
+                ticketPriceLamports: params.ticketPriceLamports,
+                maxEntries: params.maxEntries,
+                durationSlots: params.durationSlots,
+                retainedBps: params.retainedBps,
+            });
+            signature = await signAndSendTransaction(this.connection, tx, [this.authority]);
+            console.log(`[RoundManager] Round initialized: ${signature}`);
+            // Get current slot for start/end tracking
+            const currentSlot = await this.connection.getSlot();
+            startSlot = BigInt(currentSlot);
+            endSlot = startSlot + params.durationSlots;
+        } else {
+            try {
+                const currentSlot = await this.connection.getSlot();
+                startSlot = BigInt(currentSlot);
+                endSlot = startSlot + params.durationSlots;
+            } catch {
+                // leave defaults if slot fetch fails
+                startSlot = 0n; endSlot = params.durationSlots;
+            }
         }
-        const tx = await buildInitializeRoundTx(this.program, this.authority.publicKey, {
-            roundId,
-            ticketPriceLamports: params.ticketPriceLamports,
-            maxEntries: params.maxEntries,
-            durationSlots: params.durationSlots,
-            retainedBps: params.retainedBps,
-        });
-        const signature = await signAndSendTransaction(this.connection, tx, [this.authority]);
-        console.log(`[RoundManager] Round initialized: ${signature}`);
-        // Get current slot for start/end tracking
-        const currentSlot = await this.connection.getSlot();
-        const startSlot = BigInt(currentSlot);
-        const endSlot = startSlot + params.durationSlots;
         // Create database record
         const dbRound = await this.prisma.round.create({
             data: {

@@ -13,6 +13,7 @@ import bs58 from 'bs58';
 import { LRUCache } from 'lru-cache';
 import { PrismaClient } from '@prisma/client';
 import { ServiceManager } from './services/service-manager.js';
+import { findTreasuryPda, findTreasuryVaultPda } from './solana/index.js';
 import { UserIdentityService } from './services/user-identity.js';
 import { createLottoRoutes } from './api/lotto-routes.js';
 import { errorHandler } from './api/middleware.js';
@@ -437,6 +438,107 @@ app.get('/api/health', (req, res) => {
             timestamp: new Date().toISOString(),
         },
     });
+});
+
+// =============================================================================
+// Audit Utilities
+// =============================================================================
+/**
+ * GET /api/audit/address/:address
+ * Inspect a Solana address: owner, lamports, data length, and whether it matches
+ * our program's treasury PDAs.
+ */
+app.get('/api/audit/address/:address', async (req, res) => {
+    try {
+        const addr = String(req.params.address || '').trim();
+        const pk = new PublicKey(addr);
+        const info = await conn.getAccountInfo(pk);
+        if (!info) {
+            return res.status(404).json({ success: false, error: 'Account not found' });
+        }
+        let programIdStr = null;
+        let authorityStr = null;
+        let matchesTreasury = false;
+        let matchesTreasuryVault = false;
+        try {
+            if (serviceManager && serviceManager.isReady()) {
+                const services = serviceManager.getServices();
+                const programId = services.lottoServices.roundManager.program.programId;
+                const authorityPk = services.lottoServices.roundManager.authority.publicKey;
+                programIdStr = programId.toBase58();
+                authorityStr = authorityPk.toBase58();
+                const [treasuryPda] = findTreasuryPda(authorityPk, programId);
+                const [treasuryVaultPda] = findTreasuryVaultPda(authorityPk, programId);
+                matchesTreasury = treasuryPda.equals(pk);
+                matchesTreasuryVault = treasuryVaultPda.equals(pk);
+            }
+        }
+        catch { }
+        res.json({
+            success: true,
+            data: {
+                address: pk.toBase58(),
+                lamports: info.lamports,
+                owner: info.owner.toBase58(),
+                executable: info.executable,
+                dataLength: info.data?.length || 0,
+                rentEpoch: info.rentEpoch,
+                ourProgramId: programIdStr,
+                ourAuthority: authorityStr,
+                ownedByOurProgram: programIdStr ? (info.owner.toBase58() === programIdStr) : undefined,
+                matchesTreasuryPda: matchesTreasury,
+                matchesTreasuryVaultPda: matchesTreasuryVault,
+            },
+        });
+    }
+    catch (err) {
+        res.status(400).json({ success: false, error: err?.message || 'Invalid address' });
+    }
+});
+
+/**
+ * GET /api/audit/lotto/overview
+ * Summarize core lotto addresses and balances to quickly locate funds.
+ */
+app.get('/api/audit/lotto/overview', async (req, res) => {
+    try {
+        if (!serviceManager || !serviceManager.isReady()) {
+            return res.status(503).json({ success: false, error: 'Lotto services not initialized' });
+        }
+        const services = serviceManager.getServices();
+        const programId = services.lottoServices.roundManager.program.programId;
+        const authorityPk = services.lottoServices.roundManager.authority.publicKey;
+        const [treasuryPda] = findTreasuryPda(authorityPk, programId);
+        const [treasuryVaultPda] = findTreasuryVaultPda(authorityPk, programId);
+        const [authorityInfo, treasuryInfo, vaultInfo] = await Promise.all([
+            conn.getAccountInfo(authorityPk),
+            conn.getAccountInfo(treasuryPda),
+            conn.getAccountInfo(treasuryVaultPda),
+        ]);
+        res.json({
+            success: true,
+            data: {
+                programId: programId.toBase58(),
+                authority: {
+                    address: authorityPk.toBase58(),
+                    lamports: authorityInfo?.lamports ?? null,
+                },
+                treasuryPda: {
+                    address: treasuryPda.toBase58(),
+                    lamports: treasuryInfo?.lamports ?? null,
+                    owner: treasuryInfo?.owner?.toBase58?.() || null,
+                },
+                treasuryVaultPda: {
+                    address: treasuryVaultPda.toBase58(),
+                    lamports: vaultInfo?.lamports ?? null,
+                    owner: vaultInfo?.owner?.toBase58?.() || null,
+                },
+            },
+        });
+    }
+    catch (err) {
+        res.status(500).json({ success: false, error: err?.message || 'Failed to build overview' });
+    }
 });
 
 // =============================================================================
