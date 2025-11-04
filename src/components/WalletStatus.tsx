@@ -97,7 +97,7 @@ export function WalletStatus() {
       {!linked && (
         <Button variant="outline" size="sm" onClick={doLink}>Link Wallet on Web</Button>
       )}
-      <Button variant="ghost" size="sm" className="text-xs opacity-70" onClick={() => alert('Lottery coming soon')}>Open Lottery (Web)</Button>
+  {/* Lottery feature removed */}
     </div>
   );
 }

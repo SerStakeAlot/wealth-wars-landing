@@ -15,7 +15,7 @@ import { ServiceManager } from './services/service-manager.js';
 import { UserIdentityService } from './services/user-identity.js';
 import { createLottoRoutes } from './api/lotto-routes.js';
 import { errorHandler } from './api/middleware.js';
-import { createTelegramBot, handleTelegramWebhook } from './telegram-bot-lotto.js';
+// Telegram bot removed
 
 // =============================================================================
 // Environment Configuration
@@ -222,60 +222,7 @@ async function initializeLottoServices(): Promise<void> {
   }
 }
 
-// =============================================================================
-// Initialize Telegram Bot (Optional)
-// =============================================================================
-
-let telegramBot: any = null;
-
-function initializeTelegramBot(): void {
-  const botToken = process.env.TELEGRAM_BOT_TOKEN;
-  const mode = (process.env.TELEGRAM_MODE || 'polling').toLowerCase(); // polling | webhook | disabled
-
-  if (mode === 'disabled') {
-    console.log('[Telegram] Bot disabled via TELEGRAM_MODE=disabled');
-    return;
-  }
-
-  if (!botToken || botToken === 'your_bot_token_here') {
-    console.log('[Telegram] Bot token not configured, skipping');
-    return;
-  }
-
-  if (!serviceManager || !userIdentityService) {
-    console.log('[Telegram] Lotto services not initialized, bot will have limited functionality');
-  }
-
-  try {
-    const services = serviceManager ? serviceManager.getServices() : undefined;
-    const botServices = services && userIdentityService ? {
-      prisma: services.prisma,
-      userIdentity: userIdentityService,
-      lottoServices: services.lottoServices,
-    } : undefined;
-
-    telegramBot = createTelegramBot(botToken, botServices);
-    if (mode === 'webhook') {
-      const webhookUrl = process.env.TELEGRAM_WEBHOOK_URL;
-      const secret = process.env.TELEGRAM_WEBHOOK_SECRET;
-      if (webhookUrl) {
-        telegramBot.telegram.setWebhook(webhookUrl, secret ? { secret_token: secret } : undefined)
-          .then(() => console.log('[Telegram] ✅ Webhook set:', webhookUrl))
-          .catch((err: any) => console.error('[Telegram] ❌ Failed to set webhook:', err?.message || err));
-      } else {
-        console.warn('[Telegram] TELEGRAM_MODE=webhook but TELEGRAM_WEBHOOK_URL not set; set it or configure webhook manually.');
-      }
-      // Do not call launch() in webhook mode
-      console.log('[Telegram] Using webhook mode');
-    } else {
-      // Default to polling mode
-      telegramBot.launch();
-      console.log('[Telegram] ✅ Bot initialized and launched (polling)');
-    }
-  } catch (error) {
-    console.error('[Telegram] ❌ Failed to initialize bot:', error);
-  }
-}
+// Telegram bot removed
 
 // =============================================================================
 // Express App Setup
@@ -324,51 +271,7 @@ app.use(express.static('public'));
 // Health Check Routes
 // =============================================================================
 
-// Telegram webhook endpoint (only used if TELEGRAM_MODE=webhook)
-app.post('/api/telegram/webhook', async (req, res) => {
-  try {
-    if (!telegramBot) {
-      return res.status(503).json({ success: false, error: 'Telegram bot not initialized' });
-    }
-    const expected = process.env.TELEGRAM_WEBHOOK_SECRET;
-    const header = req.headers['x-telegram-bot-api-secret-token'];
-    if (expected && header !== expected) {
-      return res.status(401).json({ success: false, error: 'Invalid webhook secret' });
-    }
-    await handleTelegramWebhook(req as any, res as any, telegramBot);
-  } catch (err: any) {
-    console.error('[Telegram] Webhook handler error:', err?.message || err);
-    res.status(500).json({ success: false, error: 'Webhook handling failed' });
-  }
-});
-
-// Telegram webhook health (no secrets)
-app.get('/api/telegram/health', async (req, res) => {
-  try {
-    const mode = (process.env.TELEGRAM_MODE || 'polling').toLowerCase();
-    const hasToken = !!process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_BOT_TOKEN !== 'your_bot_token_here';
-    let webhookInfo: any = null;
-    if (mode === 'webhook' && telegramBot) {
-      try {
-        webhookInfo = await telegramBot.telegram.getWebhookInfo();
-      } catch (e: any) {
-        webhookInfo = { error: e?.message || 'failed to fetch' };
-      }
-    }
-    res.json({
-      success: true,
-      data: {
-        mode,
-        configured: hasToken,
-        webhookUrl: process.env.TELEGRAM_WEBHOOK_URL ? 'set' : 'not set',
-        status: mode === 'webhook' ? (webhookInfo?.url ? 'OK' : 'misconfigured') : (mode === 'disabled' ? 'disabled' : 'polling'),
-        webhookInfo: webhookInfo && webhookInfo.url ? { url: webhookInfo.url, hasCustomCert: webhookInfo.has_custom_certificate, pending: webhookInfo.pending_update_count } : undefined,
-      },
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, error: 'Failed to get Telegram health' });
-  }
-});
+// Telegram webhook endpoints removed
 
 /**
  * GET /health
@@ -397,7 +300,7 @@ app.get('/health', async (req, res) => {
         services: {
           database: 'healthy',
           lotto: serviceManager?.isReady() ? 'healthy' : 'not initialized',
-          telegram: telegramBot ? 'healthy' : 'not configured',
+          // telegram removed
         },
         lottoHealth,
       },
@@ -509,8 +412,7 @@ async function startServer() {
     // Initialize lotto services
     await initializeLottoServices();
 
-    // Initialize Telegram bot
-    initializeTelegramBot();
+  // Telegram bot removed
 
     // Start Express server
     app.listen(PORT, () => {
@@ -549,9 +451,7 @@ process.on('SIGTERM', async () => {
   if (serviceManager) {
     await serviceManager.stop();
   }
-  if (telegramBot) {
-    telegramBot.stop();
-  }
+  // Telegram bot removed
   await prisma.$disconnect();
   process.exit(0);
 });
@@ -561,9 +461,7 @@ process.on('SIGINT', async () => {
   if (serviceManager) {
     await serviceManager.stop();
   }
-  if (telegramBot) {
-    telegramBot.stop();
-  }
+  // Telegram bot removed
   await prisma.$disconnect();
   process.exit(0);
 });
