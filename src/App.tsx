@@ -42,7 +42,7 @@ function App() {
     {
       icon: Shield,
       title: "Defensive & Offensive Play",
-      description: "Purchase shields for protection or gamble in high-stakes lotteries. Every $WEALTH spent is a strategic choice between safety and opportunity."
+      description: "Purchase shields for protection and take calculated risks. Every $WEALTH spent is a strategic choice between safety and opportunity."
     },
     {
       icon: Trophy,
@@ -246,13 +246,6 @@ function App() {
                   </div>
                 </div>
                 <div className="flex items-start gap-4">
-                  <Trophy size={24} className="text-accent mt-1 flex-shrink-0" />
-                  <div>
-                    <h3 className="text-xl font-semibold mb-2">Lottery System</h3>
-                    <p className="text-muted-foreground">25 $WEALTH entry fee, 80% to winner. High variance, high reward for risk-takers.</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-4">
                   <Lightning size={24} className="text-accent mt-1 flex-shrink-0" />
                   <div>
                     <h3 className="text-xl font-semibold mb-2">Business Scaling</h3>
@@ -282,7 +275,7 @@ function App() {
                     </li>
                     <li className="flex items-center gap-3">
                       <span className="w-8 h-8 bg-accent text-accent-foreground rounded-full flex items-center justify-center font-bold text-sm">4</span>
-                      <span>Allocate → Shields, Lottery, Strategy</span>
+                      <span>Allocate → Shields, Strategy</span>
                     </li>
                     <li className="flex items-center gap-3">
                       <span className="w-8 h-8 bg-accent text-accent-foreground rounded-full flex items-center justify-center font-bold text-sm">5</span>
